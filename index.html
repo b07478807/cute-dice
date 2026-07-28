@@ -1,0 +1,1748 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#4e3b36">
+<meta name="robots" content="noindex, nofollow">
+<title>Portal Dash 擲骰</title>
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<style>
+  :root{
+    --bg-top:#5d4842; --bg-bot:#443430;
+    --surface:#6f594f;          /* 骰盤石板 */
+    --panel:#4b3934;            /* 未選中的控件 */
+    --panel-in:#3d2e2a;
+    --line:#372924;
+    --ink:#f7f0e7; --ink-dim:#cdb9ad;
+    --crimson:#9c3b45; --crimson-dk:#7b2620;
+    --teal:#2fa9a9; --amber:#ffc94a; --ember:#e2513a;
+    --bone:#f4eee3;
+    --mono:ui-monospace,"SF Mono","Cascadia Mono",Menlo,Consolas,monospace;
+    --sans:system-ui,-apple-system,"Noto Sans TC","Microsoft JhengHei",sans-serif;
+    --cube:62px;
+  }
+  @media(min-width:378px){:root{--cube:70px}}
+  *{box-sizing:border-box;margin:0;padding:0}
+  [hidden]{display:none!important}   /* 否則帶 display 的元素會蓋掉 hidden */
+  html,body{background:var(--bg-bot);color:var(--ink)}
+  body{font-family:var(--sans);-webkit-font-smoothing:antialiased;
+    background-image:linear-gradient(180deg,var(--bg-top) 0%,var(--bg-bot) 62%);
+    background-attachment:fixed;min-height:100vh;min-height:100dvh;-webkit-tap-highlight-color:transparent}
+  .wrap{max-width:520px;margin:0 auto;padding:0 14px 8px}
+  button{font-family:inherit}
+  .nosel{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+  svg.px{display:block;shape-rendering:crispEdges;image-rendering:pixelated}
+
+  header{display:flex;align-items:baseline;gap:10px;padding:calc(12px + env(safe-area-inset-top)) 0 12px}
+  h1{font-family:var(--mono);font-size:14px;font-weight:700;letter-spacing:.2em;text-transform:uppercase}
+  h1 .dot{color:var(--amber)}
+  header .spacer{flex:1}
+
+  .blk{appearance:none;border:0;cursor:pointer;font-family:var(--mono);color:var(--ink);
+    background:var(--panel);box-shadow:inset -3px -3px 0 #2e221f, inset 3px 3px 0 #66504a;
+    transition:background .12s linear}
+  .blk:focus-visible{outline:2px solid var(--teal);outline-offset:2px}
+  .blk[aria-pressed="true"]{background:var(--crimson);color:#fff;
+    box-shadow:inset 3px 3px 0 #5f2129, inset -3px -3px 0 #bf5c66}
+  .blk:disabled{opacity:.34;cursor:not-allowed}
+  .mute{padding:8px 10px;font-size:10px;letter-spacing:.12em;min-height:0}
+
+  .tabs{display:flex;margin-bottom:14px}
+  .tabs .blk{flex:1;min-height:46px;font-size:12px;letter-spacing:.14em;display:flex;
+    align-items:center;justify-content:center;gap:8px}
+  .tabs .swat{width:13px;height:13px;box-shadow:inset 0 0 0 1px rgba(0,0,0,.4)}
+
+  section{margin-bottom:12px}
+  .eyebrow{font-family:var(--mono);font-size:10px;letter-spacing:.2em;text-transform:uppercase;
+    color:var(--ink-dim);display:flex;justify-content:space-between;align-items:baseline;margin-bottom:7px}
+  .eyebrow b{color:var(--amber);font-weight:400}
+
+  .chips{display:flex;gap:6px;overflow-x:auto;padding-bottom:4px;scrollbar-width:none}
+  .chips::-webkit-scrollbar{display:none}
+  .chip{flex:0 0 auto;padding:8px 11px 8px 8px;font-size:11.5px;display:flex;align-items:center;
+    gap:8px;min-height:52px}
+  .chip .nm{display:flex;flex-direction:column;align-items:flex-start;gap:2px;line-height:1.2}
+  .hearts{display:inline-flex;gap:3px;align-items:center;vertical-align:middle;line-height:1}
+  .hearts b{font-family:var(--mono);font-size:10px;font-weight:400;line-height:1;color:var(--amber);margin-left:2px}
+  .chip[aria-pressed="true"] .hp{color:#ffe3c9}
+  .warn{margin-top:7px;font-family:var(--mono);font-size:11px;color:#ffd0c4;
+    background:var(--crimson-dk);padding:8px 10px;display:flex;gap:8px;align-items:center}
+  .warn:empty{display:none}
+
+  .row{display:flex;gap:6px;align-items:stretch}
+  .seg{display:flex;flex:0 0 auto}
+  .seg .blk{padding:0 13px;font-size:12px;min-height:52px;min-width:52px;display:flex;
+    align-items:center;gap:6px}
+  .stepper{display:flex;flex:1}
+  .stepper .blk{width:50px;min-height:52px;font-size:20px;line-height:1}
+  .stepper .val{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;
+    background:var(--panel-in);box-shadow:inset 3px 3px 0 #2b201d,inset -3px -3px 0 #55403b}
+  .stepper .val b{font-family:var(--mono);font-size:20px;color:var(--amber);line-height:1}
+  .stepper .val span{font-family:var(--mono);font-size:9px;letter-spacing:.16em;color:var(--ink-dim);margin-top:3px}
+  .mods{display:flex;gap:6px;margin-top:6px}
+  .mods .blk{flex:1;padding:11px 4px;font-size:12px;min-height:50px}
+  .mods .blk small{display:block;font-size:9px;letter-spacing:.1em;color:var(--ink-dim);margin-top:2px}
+  .mods .blk[aria-pressed="true"] small{color:#ffd9cf}
+  .loadout{margin-top:8px;font-family:var(--mono);font-size:11px;letter-spacing:.1em;
+    color:var(--ink-dim);text-transform:uppercase}
+  .loadout b{color:var(--ink);font-weight:400}
+
+  /* ============ 骰盤 ============ */
+  .tray{background:var(--surface);box-shadow:inset 4px 4px 0 #55423a, inset -4px -4px 0 #8a6f63;
+    padding:14px;margin-bottom:12px;transition:box-shadow .15s linear}
+  .tray.live{box-shadow:inset 4px 4px 0 #55423a, inset -4px -4px 0 #8a6f63, 0 0 0 3px rgba(255,201,74,.55)}
+  .tstrip{display:flex;align-items:center;gap:9px;padding-bottom:12px;margin-bottom:14px;
+    border-bottom:2px solid #5b483f}
+  .tstrip .t1{font-family:var(--mono);font-size:13px;letter-spacing:.06em}
+  .tstrip .t2{font-family:var(--mono);font-size:10px;letter-spacing:.14em;color:#e6d2c5;
+    margin-left:auto;text-transform:uppercase}
+  .grid{display:flex;flex-direction:column;align-items:center;gap:12px;padding:6px 0}
+  .drow{display:flex;gap:10px;justify-content:center}
+  .grid.turn{--cube:84px;padding:10px 0 4px}
+  .grid.turn .drow{gap:26px}
+
+  .cell{appearance:none;border:0;padding:0;background:none;cursor:pointer;
+    width:var(--cube);height:var(--cube);perspective:560px;position:relative;
+    transition:transform .12s ease-out,opacity .18s linear}
+  .cell:focus-visible{outline:2px solid var(--teal);outline-offset:4px}
+  .cell.idle{transform:scale(.94)}   /* 待擲：用縮小表示，不用透明度 */
+  .cell.sel{transform:translateY(-4px)}
+  .cell.sel::after{content:"";position:absolute;inset:-4px;border:2px solid var(--teal);pointer-events:none}
+  .cell .tag{position:absolute;left:50%;transform:translateX(-50%);bottom:-15px;
+    font-family:var(--mono);font-size:8px;letter-spacing:.12em;color:#9ff0f0}
+  .cell .cap{position:absolute;left:50%;transform:translateX(-50%);top:calc(var(--cube) + 12px);
+    font-family:var(--mono);font-size:9px;letter-spacing:.16em;color:#e6d2c5;white-space:nowrap}
+  .dcv{display:block;width:130%;height:130%;margin:-15%}
+
+  /* 讀數 */
+  .readout{margin-top:26px}
+  .tally{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;margin-bottom:9px}
+  .tally .big{font-family:var(--mono);font-size:48px;line-height:.85;font-weight:700;color:var(--amber)}
+  .tally .of{font-family:var(--mono);font-size:15px;color:#e6d2c5;margin-left:2px}
+  .tally .verdict{font-family:var(--mono);font-size:12px;letter-spacing:.1em;text-align:right;
+    text-transform:uppercase;line-height:1.7}
+  .verdict.kill{color:var(--amber)} .verdict.short{color:#e6d2c5} .verdict.dead{color:#ffb3a3}
+  .bar{display:flex;gap:2px;height:15px;margin-bottom:6px}
+  .bar i{flex:1;background:#54413a;box-shadow:inset 1px 1px 0 #40302b}
+  .bar i.f2{background:var(--teal);box-shadow:inset 1px 1px 0 #1d7f7f}
+  .bar i.f2.amber{background:var(--amber);box-shadow:inset 1px 1px 0 #c39320}
+  .barlab{display:flex;justify-content:space-between;font-family:var(--mono);font-size:10px;
+    letter-spacing:.12em;color:#e6d2c5;text-transform:uppercase}
+  .barlab b{color:#8ff0f0;font-weight:400} .barlab b.amber{color:var(--amber)}
+
+  .wcard{margin-top:28px;display:flex;flex-direction:column;gap:14px}
+  .wline{display:flex;gap:11px;align-items:flex-start}
+  .wchip{flex:0 0 34px;height:34px;display:grid;place-items:center;background:var(--panel-in);
+    box-shadow:inset 0 0 0 1px #2b201d}
+  .wval strong{display:block;font-family:var(--mono);font-size:18px;color:var(--amber);margin-bottom:4px}
+  .wval p{font-size:12.5px;line-height:1.6}
+  .wval em{display:block;font-style:normal;font-size:11px;color:#e6d2c5;margin-top:4px}
+
+  .boss{background:var(--panel);padding:13px;box-shadow:inset -3px -3px 0 #2e221f, inset 3px 3px 0 #66504a;margin-bottom:12px}
+  .bosshp{display:flex;flex-wrap:wrap;gap:2px;margin:9px 0 7px}
+  .bosshp i{width:calc((100% - 48px)/25);min-width:7px;height:17px;background:#3a2b27;box-shadow:inset 1px 1px 0 #2a1e1b}
+  .bosshp i.f2{background:var(--ember);box-shadow:inset 1px 1px 0 #a83525}
+  .bossnum{font-family:var(--mono);font-size:11px;letter-spacing:.12em;color:var(--ink-dim);display:flex;justify-content:space-between}
+  .bossnum b{color:#ff9d88;font-weight:400}
+
+  .dock{position:sticky;bottom:0;z-index:5;
+    background:linear-gradient(180deg,rgba(68,52,48,0) 0%,var(--bg-bot) 24%);
+    padding:14px 14px calc(12px + env(safe-area-inset-bottom));max-width:520px;margin:0 auto;
+    display:flex;flex-direction:column;gap:7px}
+  .dock .blk{min-height:58px;font-size:14px;letter-spacing:.14em;text-transform:uppercase;font-weight:700}
+  .hold{background:var(--crimson)!important;color:#fff!important;touch-action:none;
+    box-shadow:inset -3px -3px 0 var(--crimson-dk), inset 3px 3px 0 #d4584c!important;position:relative;overflow:hidden}
+  .hold.charging{background:#c9483c!important;
+    box-shadow:inset 3px 3px 0 var(--crimson-dk), inset -3px -3px 0 #e8705f!important}
+  .hold.charging::after{content:"";position:absolute;inset:0;
+    background:repeating-linear-gradient(115deg,transparent 0 10px,rgba(255,201,74,.2) 10px 20px);
+    animation:slide .35s linear infinite}
+  @keyframes slide{to{transform:translateX(20px)}}
+  .ghost{background:transparent!important;box-shadow:inset 0 0 0 2px #6b544d!important;color:var(--ink-dim)!important}
+  .hint{font-family:var(--mono);font-size:10px;letter-spacing:.12em;color:#a08c82;text-align:center;
+    text-transform:uppercase;min-height:14px}
+  .qp{margin-bottom:12px}
+  .qp summary{font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;
+    color:var(--ink);background:var(--panel);box-shadow:inset -3px -3px 0 #2e221f, inset 3px 3px 0 #66504a;
+    padding:14px 13px;cursor:pointer;list-style:none;min-height:48px;display:flex;align-items:center;gap:8px}
+  .qp summary::-webkit-details-marker{display:none}
+  .qp summary::after{content:'▾';margin-left:auto}
+  .qp[open] summary::after{content:'▴'}
+  .qp summary em{font-style:normal;color:var(--amber);letter-spacing:.04em}
+  .qbody{background:var(--panel-in);padding:13px;display:flex;flex-direction:column;gap:10px}
+  .qbody .seg .blk{flex:1;min-height:44px;font-size:12px}
+  .qrow{display:flex;gap:9px;align-items:flex-start}
+  .qlab{flex:0 0 46px;font-family:var(--mono);font-size:10px;letter-spacing:.14em;
+    text-transform:uppercase;color:var(--ink-dim);padding-top:6px}
+  .qlist{flex:1;display:flex;flex-wrap:wrap;gap:4px;min-height:30px}
+  .qlist .qi{position:relative;padding:2px;background:#332723;box-shadow:inset 0 0 0 1px #241b18}
+  .qlist .qi.next{box-shadow:inset 0 0 0 2px var(--amber)}
+  .qlist .qi i{position:absolute;top:-1px;left:1px;font-family:var(--mono);font-size:8px;
+    font-style:normal;color:var(--amber)}
+  .qlist .empty2{font-family:var(--mono);font-size:11px;color:var(--ink-dim);padding-top:7px}
+  .qhint{font-size:11.5px;line-height:1.6;color:var(--ink-dim)}
+  .qacts{display:flex;gap:6px}
+  .qacts .blk{flex:1;min-height:48px;font-size:12px}
+  .qpick{display:flex;flex-wrap:wrap;gap:6px}
+  .qpick .blk{flex:1 0 30%;min-height:46px;font-size:11px;display:flex;align-items:center;
+    justify-content:center;gap:5px}
+  .ng{width:100%;min-height:54px;font-size:13px;letter-spacing:.2em;font-weight:700;margin-bottom:12px;
+    background:var(--amber)!important;color:#2a1f14!important;
+    box-shadow:inset -3px -3px 0 #b8842c, inset 3px 3px 0 #ffe0a0!important}
+  .ovl{position:fixed;inset:0;z-index:100;background:var(--bg-bot);display:flex;flex-direction:column}
+  .ovlhead{padding:calc(14px + env(safe-area-inset-top)) 14px 12px;background:var(--panel);
+    box-shadow:inset -3px -3px 0 #2e221f}
+  .pick{display:flex;align-items:center;gap:10px;margin-top:9px}
+  .plab{font-family:var(--mono);font-size:10px;letter-spacing:.18em;color:var(--ink-dim);flex:0 0 32px}
+  .pick .seg{flex:1}
+  .pick .seg .blk{flex:1;min-height:44px;font-size:13px}
+  .lvdesc{font-family:var(--mono);font-size:10.5px;letter-spacing:.06em;color:var(--amber);margin-top:9px}
+  .imode{width:100%;min-height:44px;font-size:11px;letter-spacing:.1em;margin-top:10px}
+  .legend{display:flex;flex-wrap:wrap;gap:6px 12px;padding:10px 14px;background:var(--panel-in);
+    max-width:520px;margin:0 auto;width:100%;font-family:var(--mono);font-size:10px;color:var(--ink-dim)}
+  .lg{display:inline-flex;align-items:center;gap:5px;vertical-align:middle;line-height:1}
+  /* 行內圖示一律置中對齊；line-height:1 避免撐高整行造成文字上下偏移 */
+  .iw{display:inline-flex;align-items:center;gap:3px;vertical-align:middle;
+    line-height:1;margin:0 3px}
+  .sw2{width:11px;height:11px;border-radius:2px;vertical-align:middle;
+    box-shadow:inset 0 0 0 1px rgba(0,0,0,.35)}
+  .ovlbody{flex:1;overflow-y:auto;padding:14px;max-width:520px;margin:0 auto;width:100%;
+    -webkit-overflow-scrolling:touch}
+  .sgrp{margin-bottom:18px}
+  .sgrp h3{font-family:var(--mono);font-size:11px;letter-spacing:.2em;text-transform:uppercase;
+    color:var(--amber);margin-bottom:9px;display:flex;align-items:center;gap:8px}
+  .sgrp h3 i{flex:1;height:2px;background:#5b483f}
+  .ck{display:flex;gap:10px;align-items:flex-start;padding:9px 0;cursor:pointer;
+    border-bottom:1px solid #5b483f}
+  .ck:last-child{border-bottom:0}
+  .ck .box{flex:0 0 22px;height:22px;margin-top:1px;background:var(--panel-in);
+    box-shadow:inset 2px 2px 0 #2b201d,inset -2px -2px 0 #55403b;display:grid;place-items:center}
+  .ck .box::after{content:'';width:11px;height:11px;background:transparent}
+  .ck.on .box::after{background:var(--amber)}
+  .ck .txt{flex:1;font-size:12.5px;line-height:1.6}
+  .ck.on .txt{color:#8f7d75;text-decoration:line-through}
+  .ovlfoot{display:flex;gap:7px;padding:12px 14px calc(12px + env(safe-area-inset-bottom));
+    background:var(--panel);max-width:520px;margin:0 auto;width:100%}
+  .ovlfoot .blk{flex:1;min-height:54px;font-size:13px;letter-spacing:.1em;font-weight:700}
+  .primary2{background:var(--crimson)!important;color:#fff!important;
+    box-shadow:inset -3px -3px 0 #5f2129, inset 3px 3px 0 #bf5c66!important}
+  .ref{max-width:520px;margin:0 auto 14px;padding:0 14px}
+  .ref summary{font-family:var(--mono);font-size:11px;letter-spacing:.16em;text-transform:uppercase;
+    color:var(--ink-dim);background:var(--panel);box-shadow:inset -3px -3px 0 #2e221f, inset 3px 3px 0 #66504a;
+    padding:14px 13px;cursor:pointer;list-style:none;min-height:48px;display:flex;align-items:center}
+  /* 行動速查用綠色，跟怪物速查區分開 */
+  .ref.act summary{background:#3f7d4a;color:#fff;
+    box-shadow:inset -3px -3px 0 #275132, inset 3px 3px 0 #62a973}
+  .ref.act[open] summary{box-shadow:inset 3px 3px 0 #275132, inset -3px -3px 0 #62a973}
+  .ref summary::-webkit-details-marker{display:none}
+  .ref summary::after{content:'▾';margin-left:auto;font-size:13px}
+  .ref[open] summary::after{content:'▴'}
+  .refbody{background:var(--panel-in);padding:13px;display:flex;flex-direction:column;gap:12px}
+  .mrow{display:flex;gap:10px;align-items:flex-start}
+  .mrow .mi{flex:0 0 26px;padding-top:2px}
+  .mrow .mt{flex:1;font-size:12px;line-height:1.55}
+  .mrow .mt strong{font-family:var(--mono);font-size:12.5px;letter-spacing:.04em;margin-right:7px}
+  .mrow .mt .imm{display:inline-block;vertical-align:middle;line-height:1.4;
+    font-family:var(--mono);font-size:10px;color:#ffb3a3;
+    background:var(--crimson-dk);padding:1px 5px;margin-left:4px}
+  .mini{font-size:11px;padding:9px 11px;min-height:40px;margin:0 5px 0 0;letter-spacing:.04em}
+  .ask{display:flex;gap:0;margin-top:8px}
+  .steps{margin:7px 0 0 16px;font-size:12px;line-height:1.65}
+  .steps li{margin-bottom:4px}
+  .rules b{display:block;font-family:var(--mono);font-size:10px;letter-spacing:.18em;
+    text-transform:uppercase;color:var(--amber);margin:0 0 5px}
+  .rules ul{margin-bottom:11px}
+  .rules ul:last-child{margin-bottom:0}
+  /* 立方塊是斜邊，不能套 crispEdges，否則邊緣會鋸齒 */
+  .cb{display:block}
+  .agrp{margin-bottom:16px}
+  .agrp.hi{background:#54403a;padding:12px;margin-bottom:18px;
+    box-shadow:inset 0 0 0 1px #6b544c}
+  .agrp.hi h4{color:#ffd77a}
+  .agrp.hi .steps{margin-bottom:0}
+  .agrp:last-child{margin-bottom:0}
+  .agrp h4{font-family:var(--mono);font-size:10px;letter-spacing:.16em;text-transform:uppercase;
+    color:var(--amber);margin-bottom:8px;line-height:1.5}
+  .arow{display:flex;gap:10px;padding:8px 0;border-bottom:1px solid #4b3934;align-items:baseline}
+  .arow:last-child{border-bottom:0}
+  .an{flex:0 0 92px;font-family:var(--mono);font-size:11.5px;line-height:1.5;color:var(--ink)}
+  /* 顏色功能分三欄：立方塊+顏色 / 功能名 / 說明，前兩欄不換行 */
+  .arow.b3{gap:9px;align-items:flex-start}
+  .b3 .bc,.b3 .bn{min-height:19px;display:inline-flex;align-items:center}
+  .b3 .bc{flex:0 0 auto;display:inline-flex;align-items:center;gap:5px;white-space:nowrap;
+    font-family:var(--mono);font-size:11.5px;line-height:1.5;color:var(--ink)}
+  .b3 .bn{flex:0 0 62px;white-space:nowrap;font-family:var(--mono);font-size:11.5px;
+    line-height:1.5;color:var(--ink)}
+  /* 物品同樣三欄：圖示+名稱 / 動作 / 說明 */
+  .arow.i3{gap:9px;align-items:flex-start}
+  .i3 .ii,.i3 .ia{min-height:20px;display:inline-flex;align-items:center}
+  .i3 .ii{flex:0 0 52px;display:inline-flex;align-items:center;gap:5px;white-space:nowrap;
+    font-family:var(--mono);font-size:11.5px;line-height:1.5;color:var(--ink)}
+  .i3 .ia{flex:0 0 60px;white-space:nowrap;font-family:var(--mono);font-size:11.5px;
+    line-height:1.5;color:var(--amber)}
+  .at{flex:1;font-size:12px;line-height:1.6}   /* 12×1.6=19.2px，與左側 19–20px 的標籤方塊對齊 */
+  .agrp .steps{margin-left:16px}
+  .agrp ul{margin-left:16px;font-size:12px;line-height:1.7;color:var(--ink-dim)}
+  .agrp ul li{margin-bottom:4px}
+  .rules{border-top:2px solid #4b3934;padding-top:11px;font-size:11.5px;line-height:1.75;color:var(--ink-dim)}
+  .rules li{margin-left:15px}
+  footer{font-family:var(--mono);font-size:10px;letter-spacing:.1em;color:#93807a;
+    text-align:center;padding:4px 4px 6px;line-height:2}
+  .legal{font-family:var(--sans);font-size:10px;line-height:1.7;color:#7d6b64;
+    text-align:center;padding:0 16px calc(18px + env(safe-area-inset-bottom));max-width:520px;margin:0 auto}
+  @media (prefers-reduced-motion:reduce){.hold.charging::after{animation:none}}
+</style>
+</head>
+<body>
+<div class="wrap nosel">
+  <header>
+    <h1>Portal Dash<span class="dot">.</span></h1>
+    <span class="spacer"></span>
+    <button class="blk mute" id="mute" aria-pressed="true">音效 開</button>
+  </header>
+
+  <button class="blk ng" id="newGame">NEW GAME START</button>
+
+  <div class="tabs" role="tablist">
+    <button class="blk" id="tabTurn" aria-pressed="true">
+      <span class="swat" style="background:#f4eee3"></span>行動骰</button>
+    <button class="blk" id="tabFight" aria-pressed="false">
+      <span class="swat" style="background:#17130f"></span>戰鬥骰</button>
+  </div>
+
+  <div id="fightCfg" hidden>
+    <section>
+      <div class="eyebrow"><span>目標</span><b id="tgtNote"></b></div>
+      <div class="chips" id="chips" role="group" aria-label="選擇目標"></div>
+      <p class="warn" id="warn" role="status"></p>
+    </section>
+    <section>
+      <div class="eyebrow"><span>武器</span></div>
+      <div class="row">
+        <div class="seg" role="group" aria-label="武器類型">
+          <button class="blk" id="kSword" aria-pressed="true"></button>
+          <button class="blk" id="kBow" aria-pressed="false"></button>
+        </div>
+        <div class="stepper">
+          <button class="blk" id="dMinus" aria-label="減少骰數">−</button>
+          <div class="val"><b id="dVal">3</b><span>骰數</span></div>
+          <button class="blk" id="dPlus" aria-label="增加骰數">+</button>
+        </div>
+      </div>
+      <div class="mods">
+        <button class="blk" id="mNether" aria-pressed="false">獄髓<small>重骰 ×1</small></button>
+        <button class="blk" id="mReroll" aria-pressed="false">重骰附魔<small>重骰 ×1</small></button>
+        <button class="blk" id="mDie" aria-pressed="false">+1 骰附魔<small>骰數 +1</small></button>
+      </div>
+      <p class="loadout" id="loadout"></p>
+    </section>
+    <div class="boss" id="bossPanel" hidden>
+      <div class="eyebrow"><span>頭目血量</span><b id="bossName"></b></div>
+      <div class="bosshp" id="bossBar" aria-hidden="true"></div>
+      <div class="bossnum">
+        <span><b id="bossCur">20</b> / <span id="bossMax">20</span> 點</span>
+        <button class="blk ghost" id="bossReset" style="padding:5px 10px;font-size:10px;min-height:0">重設</button>
+      </div>
+    </div>
+  </div>
+
+  <section id="bossPick" hidden>
+    <div class="eyebrow"><span>頭目</span><b id="bossTrait"></b></div>
+    <div class="row">
+      <div class="chips" id="bchips" style="flex:1" role="group" aria-label="選擇頭目"></div>
+    </div>
+    <div class="seg" id="bside" style="margin-top:6px">
+      <button class="blk" id="bEasy" aria-pressed="true">簡單面 20</button>
+      <button class="blk" id="bHard" aria-pressed="false">困難面 25</button>
+      <button class="blk" id="bReveal" aria-pressed="false" style="margin-left:6px">已現身</button>
+    </div>
+  </section>
+
+  <details class="qp" id="qpanel">
+    <summary id="qsum">生怪隊列</summary>
+    <div class="qbody">
+      <div class="eyebrow"><span>等級</span><b id="lvNote"></b></div>
+      <div class="seg" id="lvseg"></div>
+      <div class="qrow"><span class="qlab">生怪磚</span><span class="qlist" id="qspawn"></span></div>
+      <div class="qrow"><span class="qlab">隊列</span><span class="qlist" id="qlist"></span></div>
+      <p class="qhint" id="qhint"></p>
+      <div class="qacts">
+        <button class="blk" id="qGen">生成 1 隻</button>
+        <button class="blk" id="qKill">擊敗 → 隊尾</button>
+        <button class="blk ghost" id="qNew">重排隊列</button>
+      </div>
+      <div class="qpick" id="qpick" hidden></div>
+    </div>
+  </details>
+
+  <div class="tray" id="tray">
+    <div class="tstrip" id="tstrip" hidden></div>
+    <div id="diceArea"></div>
+    <div class="readout" id="readout" hidden>
+      <div class="tally">
+        <div><span class="big" id="total">0</span><span class="of" id="need"></span></div>
+        <div class="verdict" id="verdict"></div>
+      </div>
+      <div class="bar" id="bar" aria-hidden="true"></div>
+      <div class="barlab"><span id="barLeft"></span><span><b id="barVal"></b></span></div>
+    </div>
+    <div class="wcard" id="wcard" hidden>
+      <div class="wline"><span class="wchip" id="wIcon1"></span><span class="wval" id="wBlock"></span></div>
+      <div class="wline"><span class="wchip" id="wIcon2"></span><span class="wval" id="wMob"></span></div>
+      <div id="bossRow"></div>
+    </div>
+  </div>
+</div>
+
+<div class="dock nosel">
+  <button class="blk hold" id="btnRoll">按住搖骰</button>
+  <button class="blk hold" id="btnReroll" hidden></button>
+  <button class="blk ghost" id="btnApply" hidden></button>
+  <p class="hint" id="hint">按住不放，放開才會定骰</p>
+</div>
+<div class="ovl" id="setupOvl" hidden>
+  <div class="ovlhead">
+    <div class="eyebrow" style="margin:0"><span>開新的一局</span><b id="setupTag"></b></div>
+    <div class="pick">
+      <span class="plab">人數</span><div class="seg" id="plSeg"></div>
+    </div>
+    <div class="pick">
+      <span class="plab">等級</span><div class="seg" id="lvSeg2"></div>
+    </div>
+    <p class="lvdesc" id="lvDesc"></p>
+    <button class="blk imode" id="iconToggle" aria-pressed="false">圖示模式</button>
+  </div>
+  <div class="legend" id="legend" hidden></div>
+  <div class="ovlbody" id="setupList"></div>
+  <div class="ovlfoot">
+    <button class="blk" id="setupClose">取消</button>
+    <button class="blk primary2" id="setupGo">完成設置，開始遊戲</button>
+  </div>
+</div>
+
+<details class="ref act">
+  <summary>回合與行動速查</summary>
+  <div class="refbody" id="actbody"></div>
+</details>
+<details class="ref">
+  <summary>怪物速查</summary>
+  <div class="refbody" id="refbody"></div>
+</details>
+<footer id="foot"></footer>
+<p class="legal">
+  非官方玩家自製工具，與 Mojang Studios、Microsoft、Ravensburger 均無關聯，亦未經其授權或認可。<br>
+  使用前請先擁有實體遊戲。所有圖示為本工具原創像素圖。
+</p>
+
+<script>
+/* ===== 出錯時把訊息顯示在畫面上（手機沒有 console 可看） ===== */
+(function(){
+  function show(msg){
+    var d=document.getElementById('errbox');
+    if(!d){ d=document.createElement('div'); d.id='errbox';
+      d.style.cssText='position:fixed;left:0;right:0;bottom:0;z-index:99;background:#7b2620;color:#fff;'+
+        'font:12px/1.5 ui-monospace,monospace;padding:10px 12px;white-space:pre-wrap;word-break:break-all';
+      document.body.appendChild(d); }
+    d.textContent='錯誤：'+msg;
+  }
+  window.addEventListener('error',function(e){ show((e.message||e.error)+'  @'+(e.lineno||'?')); });
+  window.addEventListener('unhandledrejection',function(e){ show('Promise: '+(e.reason&&e.reason.message||e.reason)); });
+})();
+
+/* ===== 內建瀏覽器（Messenger / LINE / IG）偵測 ===== */
+(function(){
+  var ua=navigator.userAgent||'';
+  var inApp=/FBAN|FBAV|FB_IAB|Messenger|Instagram|Line\/|MicroMessenger/i.test(ua);
+  var web=/^https?:$/.test(location.protocol);
+  if(!inApp) return;
+  var ios=/iPhone|iPad|iPod/i.test(ua);
+  var bar=document.createElement('div');
+  bar.style.cssText='position:sticky;top:0;z-index:50;background:#f2b544;color:#241a1a;'+
+    'font:12px/1.55 system-ui,sans-serif;padding:11px 13px;display:flex;gap:10px;align-items:center';
+  var txt=document.createElement('div'); txt.style.flex='1';
+  var btn=document.createElement('button');
+  btn.style.cssText='flex:0 0 auto;border:0;background:#241a1a;color:#fff;font:700 12px/1 system-ui,sans-serif;'+
+    'padding:11px 12px;min-height:40px';
+  if(!web){
+    /* 沒有網址可交給瀏覽器：只能給指引 */
+    txt.textContent=ios? '在 Messenger 裡開啟檔案無法執行。請點右上「⋯」→ 在 Safari 中開啟。'
+                       : '在 Messenger 裡開啟檔案無法執行。請點右上「⋮」→ 用瀏覽器開啟。';
+    btn.remove();
+  }else if(ios){
+    txt.textContent='建議改用 Safari 開啟，體驗較完整。';
+    btn.textContent='複製連結';
+    btn.onclick=function(){
+      var u=location.href;
+      if(navigator.clipboard) navigator.clipboard.writeText(u).then(function(){btn.textContent='已複製'},fail);
+      else fail();
+      function fail(){ txt.textContent='請點右上「⋯」→ 在 Safari 中開啟'; btn.remove(); }
+    };
+  }else{
+    txt.textContent='建議改用 Chrome 開啟。';
+    btn.textContent='用瀏覽器開啟';
+    btn.onclick=function(){
+      var u=location.href.replace(/^https?:\/\//,'');
+      location.href='intent://'+u+'#Intent;scheme=https;package=com.android.chrome;end';
+      setTimeout(function(){ txt.textContent='若沒有跳轉，請點右上「⋮」→ 用瀏覽器開啟'; },1200);
+    };
+  }
+  bar.appendChild(txt); if(btn.textContent) bar.appendChild(btn);
+  document.addEventListener('DOMContentLoaded',function(){ document.body.insertBefore(bar,document.body.firstChild) });
+})();
+
+/* ===== 圖示：16x16 像素表，換素材只要改這張表 ===== */
+const ICONS = {
+  sword: {
+    key:{'.':null,w:'#eef3f8',x:'#9aa7b4',g:'#7a5a33',h:'#4e3620'},
+    rows:[
+      '.......w........',
+      '......wxx.......',
+      '......wxx.......',
+      '......wxx.......',
+      '......wxx.......',
+      '......wxx.......',
+      '......wxx.......',
+      '.....gwxxg......',
+      '....ggwxxgg.....',
+      '.......hh.......',
+      '.......hh.......',
+      '.......hh.......',
+      '......ghhg......',
+      '................',
+      '................',
+      '................',
+    ]},
+  bow: {
+    key:{'.':null,g:'#7a5a33',s:'#e8e0cf',a:'#b9925c',w:'#dfe6ee'},
+    rows:[
+      '......ggg.......',
+      '.....g...g......',
+      '....g.....g.....',
+      '....g......s....',
+      '...g........s...',
+      '...g........s...',
+      '...g..aaaaaaaw..',
+      '...g..aaaaaaaw..',
+      '...g........s...',
+      '...g........s...',
+      '....g......s....',
+      '....g.....s.....',
+      '.....g...g......',
+      '......ggg.......',
+      '................',
+      '................',
+    ]},
+  magma: {
+    key:{'.':null,d:'#5c2119',h:'#7a3325',o:'#ff8a2b',y:'#ffd24a'},
+    rows:[
+      '................',
+      '................',
+      '..hhhhhhhhhhhh..',
+      '..dooddddddood..',
+      '..dooddddddood..',
+      '..dddddddddddd..',
+      '..ddddoooodddd..',
+      '..dddoyyyyoddd..',
+      '..dddoyyyyoddd..',
+      '..ddddoooodddd..',
+      '..dddddddddddd..',
+      '..dooddddddood..',
+      '..dooddddddood..',
+      '..dddddddddddd..',
+      '................',
+      '................',
+    ]},
+  ghast: {
+    key:{'.':null,w:'#f2f2ee',s:'#d5d5cf',k:'#2b2b30'},
+    rows:[
+      '................',
+      '...wwwwwwwwww...',
+      '...wwwwwwwwww...',
+      '...wwkkwwkkww...',
+      '...wwkkwwkkww...',
+      '...wwwwwwwwww...',
+      '...wwwkkkkwww...',
+      '...wwwkkkkwww...',
+      '...wwwwwwwwww...',
+      '...swwwwwwwws...',
+      '...s..s..s..s...',
+      '...s..s..s..s...',
+      '...s..s..s..s...',
+      '......s..s......',
+      '................',
+      '................',
+    ]},
+  ender: {
+    key:{'.':null,k:'#141018',n:'#241d2b',p:'#d8b8ff'},
+    rows:[
+      '................',
+      '.....kkkkkk.....',
+      '.....kkkkkk.....',
+      '.....pkkkkp.....',
+      '.....kkkkkk.....',
+      '......nkkn......',
+      '......kkkk......',
+      '......kkkk......',
+      '......kkkk......',
+      '......kkkk......',
+      '......nkkn......',
+      '.....k....k.....',
+      '.....k....k.....',
+      '.....k....k.....',
+      '.....k....k.....',
+      '................',
+    ]},
+  hoglin: {
+    key:{'.':null,b:'#a4655a',n:'#6d3f38',k:'#2a1a17',w:'#f0e8d8'},
+    rows:[
+      '................',
+      '................',
+      '...n......n.....',
+      '...bbbbbbbbbb...',
+      '...bkkbbbbkkb...',
+      '...bkkbbbbkkb...',
+      '...bbbbbbbbbb...',
+      '...bbbnnnnbbb...',
+      '..wbbbnnnnbbbw..',
+      '..wbbbbbbbbbbw..',
+      '...bbbbbbbbbb...',
+      '...b.bb..bb.b...',
+      '...b.bb..bb.b...',
+      '................',
+      '................',
+      '................',
+    ]},
+  blaze: {
+    key:{'.':null,r:'#e8a020',y:'#ffe04a',o:'#ff9a1f',k:'#3a2a08'},
+    rows:[
+      '................',
+      '..r.r......r.r..',
+      '..r.r......r.r..',
+      '..r.r......r.r..',
+      '..r.r.oooo.r.r..',
+      '..r.r.yyyy.r.r..',
+      '..r.r.ykky.r.r..',
+      '..r.r.yyyy.r.r..',
+      '..r.r.ykky.r.r..',
+      '..r.r.yyyy.r.r..',
+      '..r.r.oooo.r.r..',
+      '..r.r......r.r..',
+      '..r.r......r.r..',
+      '..r.r......r.r..',
+      '................',
+      '................',
+    ]},
+  wither: {
+    key:{'.':null,g:'#4a4a4a',l:'#6e6e6e',k:'#100f0f'},
+    rows:[
+      '................',
+      '....llllllll....',
+      '....lkkllkkl....',
+      '....lkkllkkl....',
+      '....llllllll....',
+      '....lklklklk....',
+      '................',
+      '..llllllllllll..',
+      '..l..gggggg..l..',
+      '..l..g.gg.g..l..',
+      '..l..gggggg..l..',
+      '.....g....g.....',
+      '.....g....g.....',
+      '.....gg..gg.....',
+      '................',
+      '................',
+    ]},
+  boots:{ key:{'.':null,k:'#2b2b30',l:'#6f6f7a',m:'#4a4a54',s:'#8a8a96'},
+    rows:['................','................','....llll........','...lssssl.......','...lssssl.......','...lssssl.......','...lmmmml.......','...lssssl.......','...lssssllll....','...lsssssssl....','...lsssssssl....','..kkkkkkkkkkk...','..kkkkkkkkkkk...','................','................','................']},
+  pick:{ key:{'.':null,g:'#7a5a33',h:'#4e3620',s:'#9aa7b4',w:'#eef3f8'},
+    rows:['................','.....wsss.......','....ws...ss.....','...ws......s....','...s........s...','......gg........','......gg........','......gg........','.....hgg........','.....hgg........','.....hgg........','.....hh.........','................','................','................','................']},
+  armor:{ key:{'.':null,k:'#3a3a42',m:'#6c6c78',l:'#9a9aa6',d:'#26262c'},
+    rows:['................','................','...ll......ll...','..lmmll..llmml..','..lmmmmllmmmml..','..lmmmmmmmmmml..','..lmmmmmmmmmml..','..lmmmkkkkmmml..','..lmmmkddkmmml..','..lmmmkkkkmmml..','..lmmmmmmmmmml..','...lmmmmmmmml...','...llllllllll...','................','................','................']},
+  chest: { key:{'.':null,k:'#3a230f',l:'#a97142',m:'#8b5a2b',d:'#6b4423',y:'#e8b64c'},
+    rows:['................','................','..kkkkkkkkkkkk..','..kllllllllllk..','..kllllllllllk..','..kmmmmmmmmmmk..','..kkkkkyykkkkk..','..kdddyyyydddk..','..kdddyyyydddk..','..kddddddddddk..','..kddddddddddk..','..kddddddddddk..','..kkkkkkkkkkkk..','................','................','................']},
+  dieB: { key:{'.':null,e:'#2b2421',k:'#17130f',a:'#ffc94a'},
+    rows:['................','................','...eeeeeeeeee...','..ekkkkkkkkkke..','..ekkaakkkkkke..','..ekkaakkkkkke..','..ekkkkkkkkkke..','..ekkkkkkkkkke..','..ekkkkkkaakke..','..ekkkkkkaakke..','..ekkkkkkkkkke..','..ekkkkkkkkkke..','...eeeeeeeeee...','................','................','................']},
+  dieW: { key:{'.':null,s:'#c9bfa9',w:'#f4eee3',k:'#241d19'},
+    rows:['................','................','...ssssssssss...','..swwwwwwwwwws..','..swwkkwwwwwws..','..swwkkwwwwwws..','..swwwwwwwwwws..','..swwwwkkwwwws..','..swwwwkkwwwws..','..swwwwwwwwwws..','..swwwwwwwkkws..','..swwwwwwwkkws..','...ssssssssss...','................','................','................']},
+  heart: {
+    key:{'.':null,k:'#2b0d0a',r:'#ff4d3d',h:'#ffb3a6'},
+    rows:[
+      '................',
+      '................',
+      '...kkkkkkkkkk...',
+      '..kkrrrkkrrrkk..',
+      '..krhhrrrrrrrk..',
+      '..krhrrrrrrrrk..',
+      '..krrrrrrrrrrk..',
+      '..kkrrrrrrrrkk..',
+      '...kkrrrrrrkk...',
+      '....kkrrrrkk....',
+      '.....kkrrkk.....',
+      '......kkkk......',
+      '................',
+      '................',
+      '................',
+      '................',
+    ]},
+  boss: {
+    key:{'.':null,y:'#ffd23f',o:'#ff7a18',w:'#fff3c4'},
+    rows:[
+      '................',
+      '.......yy.......',
+      '......yooy......',
+      '.....yooooy.....',
+      '.....yooooy.....',
+      '....yooooooy....',
+      '....yooooooy....',
+      '...yooowwooy....',
+      '...yoowwwwooy...',
+      '...yoowwwwooy...',
+      '...yooooooooy...',
+      '....yooooooy....',
+      '.....yooooy.....',
+      '......yyyy......',
+      '................',
+      '................',
+    ]},
+};
+function icon(name,size,cls){
+  const ic=ICONS[name]; if(!ic) return '';
+  let r='';
+  for(let y=0;y<16;y++){
+    const row=ic.rows[y];
+    let x=0;
+    while(x<16){
+      const c=row[x], col=ic.key[c];
+      if(!col){x++;continue}
+      let w=1; while(x+w<16 && row[x+w]===c) w++;
+      r+=`<rect x="${x}" y="${y}" width="${w}" height="1" fill="${col}"/>`;
+      x+=w;
+    }
+  }
+  return `<svg class="px ${cls||''}" width="${size}" height="${size}" viewBox="0 0 16 16" aria-hidden="true">${r}</svg>`;
+}
+
+/* 生命值：一顆愛心一點；頭目血量太多，改成 1 顆愛心 + ×N */
+function hearts(n,size){
+  if(n>6) return '<span class="hearts">'+icon('heart',size)+'<b>×'+n+'</b></span>';
+  let out=''; for(let i=0;i<n;i++) out+=icon('heart',size);
+  return '<span class="hearts">'+out+'</span>';
+}
+
+const SIDES=['f','b','r','l','u','d'];
+const ORIENT={f:[0,0],b:[0,180],r:[0,270],l:[0,90],u:[270,0],d:[90,0]};
+const COMBAT={kind:'dark',faces:{f:0,b:1,r:2,l:0,u:1,d:2}};
+const BLOCKS={
+  red:{name:'紅',hex:'#b6392f'}, gray:{name:'灰',hex:'#8d8d8d'}, gold:{name:'金',hex:'#d9a334'},
+  brown:{name:'棕',hex:'#7a5230'}, black:{name:'黑',hex:'#2e2a2a'}, wild:{name:'?',hex:null},
+};
+const BLOCKDIE={kind:'light',faces:{f:'red',b:'brown',r:'gray',l:'black',u:'gold',d:'wild'}};
+const MOBDIE={kind:'light',faces:{f:1,b:1,r:2,l:2,u:3,d:3}};
+const BLOCKTEXT={
+  red:['紅方塊','從資源立方消耗 1 塊裸露的紅方塊。'],
+  gray:['灰方塊','從資源立方消耗 1 塊裸露的灰方塊。'],
+  gold:['金方塊','從資源立方消耗 1 塊裸露的金方塊。'],
+  brown:['棕方塊','從資源立方消耗 1 塊裸露的棕方塊。'],
+  black:['黑方塊','從資源立方消耗 1 塊裸露的黑方塊。'],
+  wild:['? 任選','必須從最上層消耗 1 塊任意裸露方塊。'],
+};
+/* ===== 頭目：怪物骰的 1/2/3 決定攻擊方式，簡單面與困難面完全不同 ===== */
+const BOSSES={
+  wildfire:{ name:'野火', trait:'可越岩漿 · 遠距 3 格',
+    easy:{1:'移動最多 2 格（可越岩漿），對範圍 3 內<b>一人</b>造成 <b>1</b> 傷害。',
+          2:'移動最多 2 格（可越岩漿），對範圍 3 內<b>一人</b>造成 <b>2</b> 傷害。',
+          3:'移動最多 2 格（可越岩漿），對範圍 3 內<b>一人</b>造成 <b>3</b> 傷害。'},
+    hard:{1:'移動最多 2 格（可越岩漿），對範圍 3 內<b>所有人</b>各造成 <b>1</b> 傷害。',
+          2:'移動最多 2 格，對範圍 3 內<b>一人</b>造成 <b>2</b> 傷害，並<b>損壞其 1 件可用物品</b>（若移動護甲則立刻移除其上所有心）。',
+          3:'移動最多 2 格，對範圍 3 內<b>一人</b>造成 <b>3</b> 傷害，另外<b>從最上層消耗 1 塊任意裸露方塊</b>（比照「?」）。'}},
+  hoglin:{ name:'遠古豬布獸', trait:'近戰 · 衝撞',
+    easy:{1:'移動最多 3 格，對<b>相鄰一人</b>造成 <b>2</b> 傷害。',
+          2:'移動最多 3 格，對<b>相鄰一人</b>造成 <b>3</b> 傷害。',
+          3:'移動最多 3 格，對<b>相鄰一人</b>造成 <b>4</b> 傷害。'},
+    hard:{1:'移動最多 3 格，對<b>相鄰一人</b>造成 <b>2</b> 傷害，<b>護甲無法抵擋</b>，直接從生命條移除。',
+          2:'移動最多 3 格，造成 <b>3</b> 傷害，並把目標<b>推到相鄰空格</b>（推上岩漿磚再 1 傷害；四周被佔或熔岩則不動）。',
+          3:'移動最多 3 格，造成 <b>4</b> 傷害，另外<b>從最上層消耗 1 塊任意裸露方塊</b>（比照「?」）。'}},
+};
+
+/* ===== 怪物速查：怪物身上的號碼是印在立牌上的，與種類無關，所以列出全部 ===== */
+const MOBREF=[
+  {ic:'magma', name:'熔岩史萊姆', hp:2, act:'移動最多 2 格，對相鄰一人造成 2 傷害。'},
+  {ic:'ghast',  name:'地獄幽靈',   hp:2, act:'飛行，移動 1 格可越岩漿，對範圍 2 內一人造成 2 傷害。', imm:'不能用劍攻擊'},
+  {ic:'ender',  name:'終界使者',   hp:3, act:'移動最多 5 格，對相鄰一人造成 2 傷害。', imm:'不能用弓攻擊'},
+  {ic:'hoglin', name:'豬布獸',     hp:4, act:'移動最多 3 格，對相鄰一人造成 2 傷害，並把對方推到相鄰空格（推上岩漿磚再 1 傷害）。'},
+  {ic:'blaze',  name:'烈焰使者',   hp:4, act:'不移動，對範圍 2 內所有人各造成 2 傷害。'},
+  {ic:'wither', name:'凋零骷髏',   hp:4, act:'移動最多 2 格，對相鄰一人造成 2 傷害，並損壞對方 1 件可用物品。'},
+];
+const SPAWNRULES=[
+  '從隊列<b>最前端</b>（靠生怪磚那一端）取出 1 隻。',
+  '放到一個<b>空的生怪格</b>。若有多個空格，必須選<b>離當前玩家最近</b>的那一格。',
+  '所有生怪格都被佔住 → <b>不生怪</b>，隊列保持不變。',
+  '新生成的怪物<b>這回合不啟動</b>。每回合只會「啟動」或「生怪」其中一件，不會兩者都做。',
+  '被擊敗的怪物排到隊列<b>最後面</b>，之後還會再出來。',
+];
+const ACTRULES=[
+  '啟動順序由當前玩家決定，一隻一隻處理完再換下一隻。',
+  '怪物走最短路徑朝最近的玩家移動；同距離時由當前玩家指定目標。',
+  '不能進入岩漿磚（飛行怪例外）或已被佔據的格子，也不能站上玩家的格子。',
+  '受傷時必須先扣護甲上的心，護甲空了才扣生命條。',
+];
+
+/* ===== 依顏色產生一顆等角小立方塊（頂面亮、左面暗、右面中間） ===== */
+function cubeSVG(hex,size){
+  const t=shade(hex,1.30), l=shade(hex,0.60), r=shade(hex,0.88);
+  return '<svg class="cb" width="'+size+'" height="'+size+'" viewBox="0 0 16 16" aria-hidden="true">'+
+    '<polygon points="8,1.4 14.6,5.2 8,9 1.4,5.2" fill="'+t+'"/>'+
+    '<polygon points="1.4,5.2 8,9 8,15.2 1.4,11.4" fill="'+l+'"/>'+
+    '<polygon points="14.6,5.2 8,9 8,15.2 14.6,11.4" fill="'+r+'"/></svg>';
+}
+
+/* ===== 回合流程與可採取的行動 ===== */
+const TURNFLOW=[
+  '擲 2 顆白骰 → 先處理方塊骰（消耗方塊），再處理怪物骰（啟動或生怪）。',
+  '執行<b>恰好 2 個行動</b>：基本行動或使用物品，可自由搭配。',
+  '把 2 顆實體白骰從左推到右，標記已用掉的行動。',
+  '把白骰交給<b>左手邊</b>的人。交接前全體可決定要不要翻開相鄰的地圖磚。',
+];
+const BASICACTS=[
+  ['開採 1 塊方塊','只能挖裸露的方塊（頂面加至少兩個側面看得到）。挖出來<b>必須立刻使用</b>。'],
+  ['移動 1 步','只能直橫走。<b>只有 1 步時無法進入靈魂沙</b>（靈魂沙每格要 2 步）。'],
+  ['修復自己 1 件物品','把下排 1 件推回上排，或補滿 1 件護甲的心。若這是第一個行動，第二個行動就能用它。'],
+];
+const ITEMACTS=[
+  {ic:'boots', n:'靴子', a:'移動',     t:'走箭頭標示的格數，可以少走。不能進岩漿格或有怪物的格；踩岩漿磚進入時 −1 心；靈魂沙每格算 2 步。獄髓靴子把岩漿磚與靈魂沙當普通格走。移動結束停在寶箱格 → 開箱，<b>全員</b>各抽 2 留 1。'},
+  {ic:'sword', n:'劍',   a:'近戰',     t:'只能攻擊<b>相鄰</b>的怪物。丟該武器標示的戰鬥骰數，命中點數 ≥ 怪物生命才擊殺；不足則怪物留場、武器損壞。'},
+  {ic:'bow',   n:'弓',   a:'遠距',     t:'可攻擊射程內的怪物（通常 3 格），計算時可以轉彎。地獄幽靈不能用劍打、終界使者不能用弓打。'},
+  {ic:'pick',  n:'鎬子', a:'開採',     t:'挖箭頭數量的裸露方塊，可以少挖，<b>必須立刻使用</b>。鑽石與獄髓鎬可以閉眼從組裝架回收用過的方塊。'},
+  {ic:'armor', n:'護甲', a:'額外生命', t:'被動物品，<b>不能當行動使用</b>。受傷時先扣護甲上的心；空了推到下排，修復時補滿。護腿在取得時選擇當靴子或護甲，修復時可翻面改選。'},
+];
+const BLOCKUSE=[
+  {hex:'#b6392f', c:'紅', n:'治療',     t:'選一人，該人生命條的心<b>全部補滿</b>（護甲不補，要修復）。'},
+  {hex:'#8d8d8d', c:'灰', n:'修復',     t:'選一人，該人<b>修復所有物品</b>：下排全部推回上排，並補滿所有護甲的心。'},
+  {hex:'#d9a334', c:'金', n:'新物品',   t:'選一人，該人抽 2 張物品留 1 張。'},
+  {hex:'#7a5230', c:'棕', n:'覆蓋障礙', t:'放到任一沒有人也沒有怪的障礙格（岩漿／岩漿磚／靈魂沙），它變成普通格。這塊<b>不丟進組裝架</b>。'},
+  {hex:'#2e2a2a', c:'黑', n:'獄髓物品', t:'選 1 張公有獄髓物品，與牌堆頂 5 張洗混後放回頂端，最晚第三次抽物品就會抽到。'},
+];
+const ACTLIMITS=[
+  '每回合<b>恰好 2 個</b>行動，同一種基本行動可以做兩次。',
+  '開採的方塊必須<b>立刻使用</b>，不能留到下回合。',
+  '物品用過就損壞推到下排，修復後才能再用。',
+  '獲得新物品一律<b>抽 2 留 1</b>；庫存上限 6 件，滿了要先棄掉一件。',
+  '翻開地圖磚後：寶箱格放 1 個寶箱標記，所有生怪格依號碼從小到大、從隊列前端補怪。',
+  '傳送門條要<b>三個 Piglin 任務全部完成</b>才能翻開，翻開後立刻把頭目放上傳送門格。',
+];
+
+/* ===== 圖示模式：把清單裡的名詞換成圖示，降低文字量 ===== */
+/* 順序重要：長詞先換，否則「遠古豬布獸」會被「豬布獸」先吃掉 */
+const ICONWORDS=[
+  ['遠古豬布獸','boss'],['野火','boss'],
+  ['熔岩史萊姆','magma'],['地獄幽靈','ghast'],['終界使者','ender'],
+  ['豬布獸','hoglin'],['烈焰使者','blaze'],['凋零骷髏','wither'],
+  ['寶箱','chest'],['戰鬥骰','dieB'],['白骰','dieW'],
+];
+const SWATCH=(hex,n)=>'<span class="iw">'+n+cubeSVG(hex,16)+'</span>';
+const ICONMAP=(()=>{const m={};ICONWORDS.forEach(w=>m[w[0]]=w[1]);return m})();
+/* 一次掃描完成，避免先插入的 title 屬性被後面的詞再次替換 */
+const ICONRE=new RegExp(ICONWORDS.map(w=>w[0]).join('|'),'g');
+function iconify(html){
+  if(!S.iconMode) return html;
+  let out=html.replace(ICONRE, w=>
+    '<span class="iw" title="'+w+'">'+icon(ICONMAP[w],17)+'</span>');
+  /* 心：只換「N 個心」，避免動到「生命條」「中心」等字 */
+  out=out.replace(/(\d+) 個心/g,(m,n)=>'<span class="iw">'+n+icon('heart',15)+'</span>');
+  /* 方塊顏色清單整段換成色塊 */
+  out=out.replace('16 紅、16 灰、12 金、12 棕、8 黑',
+    SWATCH('#b6392f',16)+SWATCH('#8d8d8d',16)+SWATCH('#d9a334',12)+
+    SWATCH('#7a5230',12)+SWATCH('#2e2a2a',8));
+  return out;
+}
+
+/* ===== 開局設置清單：依人數與等級動態生成 ===== */
+function setupPlan(pl,lv){
+  const L=LEVELS[lv];
+  const bossTxt = L.boss
+    ? BOSSES[L.boss[0]].name + (L.boss[1] ? '，翻到<b>困難面</b>，心放在生命條的 <b>25</b>'
+                                          : '，翻到<b>簡單面</b>，心放在生命條的 <b>20</b>')
+    : '<b>野火</b>或<b>遠古豬布獸</b>自己選一隻，翻到<b>簡單面</b>，心放在 <b>20</b>';
+  const extra = L.extra.length
+    ? '，再額外加入 '+L.extra.map(k=>'<b>3 隻'+MOBNAME(k)+'</b>').join('、')
+    : '（這個等級不加其他怪物）';
+  const side = pl<=2 ? '1-2' : '3-4';
+  const tasks = pl<=2 ? 'A 需要 6 塊（兩欄各 3）、B 需要 7 塊（3＋4）、C 需要 5 塊'
+                      : 'A 需要 3 塊、B 需要 6 塊（兩欄各 3）、C 需要 4 塊';
+  return [
+    {t:'地圖', items:[
+      '洗混 8 張地圖磚，隨機抽 <b>'+L.tiles+' 張</b>，面朝下排成一列。',
+      '左端接上<b>起始條</b>，右端放上<b>面朝下的傳送門條</b>。',
+      '所有磚的方位要一致，讓地形連成一片。',
+      '翻開緊鄰起始條的那一張。',
+    ]},
+    {t:'資源立方', items:[
+      '方塊底座放在地圖旁，組好四片組裝架立在底座上。',
+      '把 <b>64 塊全部</b>倒進去：16 紅、16 灰、12 金、12 棕、8 黑，順序隨機，輕輕搖成一個 4×4×4 立方。',
+      '往上抽掉組裝架放在旁邊——之後用掉的方塊都丟進裡面。',
+      'Piglin 板放在方塊旁，翻到 <b>'+side+'</b> 那一面（'+pl+' 人）。',
+      '記住任務期限：'+tasks+'。每一層方塊挖完前必須交完對應任務。',
+    ]},
+    {t:'怪物', items:[
+      '取出 <b>3 隻熔岩史萊姆、3 隻地獄幽靈、3 隻終界使者</b>'+extra+'。',
+      '頭目板：'+bossTxt+'，放在傳送門條旁，立牌放上去。',
+      '生怪格 <b>1</b> 放 1 隻熔岩史萊姆、<b>2</b> 放 1 隻地獄幽靈、<b>3</b> 放 1 隻終界使者（各隨機挑一隻）。',
+      '其餘怪物<b>隨機排成一列</b>，一端放上生怪磚標示隊首。App 的隊列已依此洗好，照著排即可。',
+      '若翻開的地圖磚有超過 3 個生怪格，多出來的也從隊列前端補怪。',
+    ]},
+    {t:'玩家', items:[
+      '每人拿 1 塊庫存板（共 '+pl+' 塊）與<b>同色的 5 個物品磚</b>，放在上排任意 5 格。',
+      '48 個心放中間當公有存量。',
+      '每人拿 <b>7 個心</b>：6 個填滿生命條，第 7 個放在<b>皮革胸甲</b>那張物品磚上。',
+      '每人組好棋子（底座＋任選皮膚），放在起始條任意格——可以全部站同一格。',
+    ]},
+    {t:'物品堆', items:[
+      '<b>8 張獄髓物品</b>（深色背面）面朝上放公有區。',
+      '其餘 <b>40 張</b>洗混、面朝下疊成一疊，旁邊留出棄牌位置。',
+    ]},
+    {t:'開始前', items:[
+      '5 個寶箱標記放公有區，其中 <b>1 個</b>放在已翻開地圖磚上的寶箱格。',
+      '6 顆黑色戰鬥骰放旁邊備用（App 會幫你擲，實體骰留著對照也行）。',
+      '<b>2 顆白骰留在桌上當行動標記</b>：每回合把它們從左推到右，標記用掉的 2 個行動。擲骰交給 App。',
+      '決定誰先開始。之後每個人結束回合就換左手邊的人。',
+    ]},
+  ];
+}
+
+/* ===== 等級設置：決定隊列裡混入哪些怪物、用哪隻頭目 ===== */
+const BASE3=['magma','ghast','ender'];          /* 這三種每場都在 */
+const LEVELS={
+  1:{extra:[],                        tiles:2, boss:['wildfire',false]},
+  2:{extra:['hoglin'],                tiles:2, boss:['hoglin',false]},
+  3:{extra:['hoglin','blaze'],        tiles:2, boss:null},
+  4:{extra:[],                        tiles:3, boss:['wildfire',true]},
+  5:{extra:['hoglin','blaze','wither'],tiles:2, boss:['hoglin',true]},
+};
+const MOBNAME=k=>(MOBREF.filter(m=>m.ic===k)[0]||{name:k}).name;
+
+const MOBS=[
+  {id:'magma', name:'熔岩史萊姆',hp:2,immune:null,   ic:'magma'},
+  {id:'ghast', name:'地獄幽靈',      hp:2,immune:'sword',ic:'ghast'},
+  {id:'ender', name:'終界使者',  hp:3,immune:'bow',  ic:'ender'},
+  {id:'hoglin',name:'豬布獸',    hp:4,immune:null,   ic:'hoglin'},
+  {id:'blaze', name:'烈焰使者',  hp:4,immune:null,   ic:'blaze'},
+  {id:'wither',name:'凋零骷髏',  hp:4,immune:null,   ic:'wither'},
+  {id:'boss20',name:'頭目 簡單', hp:20,immune:null,boss:true,ic:'boss'},
+  {id:'boss25',name:'頭目 困難', hp:25,immune:null,boss:true,ic:'boss'},
+];
+
+/* ===== 機率引擎 ===== */
+const memo=new Map();
+function best(c0,c1,c2,r,T){
+  const sum=c1+2*c2;
+  if(r===0) return sum>=T?1:0;
+  const key=c0+','+c1+','+c2+','+r+','+T,h=memo.get(key);
+  if(h!==undefined) return h;
+  let bp=sum>=T?1:0;
+  for(let r0=0;r0<=c0;r0++)for(let r1=0;r1<=c1;r1++)for(let r2=0;r2<=c2;r2++){
+    const n=r0+r1+r2; if(!n) continue;
+    const p=expand(c0-r0,c1-r1,c2-r2,n,r-1,T);
+    if(p>bp) bp=p;
+  }
+  memo.set(key,bp); return bp;
+}
+function expand(k0,k1,k2,n,r,T){
+  let acc=0;
+  for(let a0=0;a0<=n;a0++)for(let a1=0;a1<=n-a0;a1++){
+    const a2=n-a0-a1;
+    acc+=multinom(n,a0,a1,a2)*Math.pow(1/3,n)*best(k0+a0,k1+a1,k2+a2,r,T);
+  }
+  return acc;
+}
+const FACT=[1,1,2,6,24,120,720,5040];
+const multinom=(n,a,b,c)=>FACT[n]/(FACT[a]*FACT[b]*FACT[c]);
+const counts=v=>{const c=[0,0,0];for(const x of v)c[x]++;return c};
+
+/* ===== 音效 ===== */
+const Snd={
+  ctx:null,on:true,noise:null,
+  init(){
+    if(this.ctx){ if(this.ctx.state==='suspended') this.ctx.resume(); return; }
+    const AC=window.AudioContext||window.webkitAudioContext; if(!AC) return;
+    this.ctx=new AC();
+    const len=Math.floor(this.ctx.sampleRate*0.06);
+    this.noise=this.ctx.createBuffer(1,len,this.ctx.sampleRate);
+    const d=this.noise.getChannelData(0);
+    for(let i=0;i<len;i++) d[i]=(Math.random()*2-1)*(1-i/len);
+  },
+  burst(freq,dur,gain,q){
+    if(!this.on||!this.ctx) return;
+    const t=this.ctx.currentTime;
+    const s=this.ctx.createBufferSource(); s.buffer=this.noise;
+    const f=this.ctx.createBiquadFilter(); f.type='bandpass'; f.frequency.value=freq; f.Q.value=q||1.4;
+    const g=this.ctx.createGain();
+    g.gain.setValueAtTime(gain,t); g.gain.exponentialRampToValueAtTime(0.0001,t+dur);
+    s.connect(f); f.connect(g); g.connect(this.ctx.destination); s.start(t); s.stop(t+dur);
+  },
+  rattle(){ this.burst(1500+Math.random()*1400,0.05,0.045,2.2); },
+  clack(){
+    this.burst(700+Math.random()*260,0.11,0.13,1.1);
+    if(!this.on||!this.ctx) return;
+    const t=this.ctx.currentTime,o=this.ctx.createOscillator(),g=this.ctx.createGain();
+    o.type='triangle'; o.frequency.setValueAtTime(190,t);
+    o.frequency.exponentialRampToValueAtTime(90,t+0.09);
+    g.gain.setValueAtTime(0.1,t); g.gain.exponentialRampToValueAtTime(0.0001,t+0.12);
+    o.connect(g); g.connect(this.ctx.destination); o.start(t); o.stop(t+0.13);
+  },
+  tone(ok){
+    if(!this.on||!this.ctx) return;
+    for(const p of (ok?[[660,0],[990,0.09]]:[[240,0]])){
+      const t=this.ctx.currentTime+p[1],o=this.ctx.createOscillator(),g=this.ctx.createGain();
+      o.type='sine'; o.frequency.value=p[0];
+      g.gain.setValueAtTime(0.0001,t); g.gain.linearRampToValueAtTime(0.07,t+0.015);
+      g.gain.exponentialRampToValueAtTime(0.0001,t+0.22);
+      o.connect(g); g.connect(this.ctx.destination); o.start(t); o.stop(t+0.24);
+    }
+  }
+};
+const buzz=ms=>{ if(navigator.vibrate) navigator.vibrate(ms); };
+const REDUCED=matchMedia('(prefers-reduced-motion:reduce)').matches;
+
+/* ===== 狀態 ===== */
+const S={view:'turn',kind:'sword',baseDice:3,nether:false,ench:false,enchDie:false,
+  target:MOBS[0],dice:[],rerollsLeft:0,phase:'ready',mode:'roll',active:[],bossCur:null,
+  bossKind:null,bossHard:false,mobBranch:null,spawnResult:null,
+  level:1,queue:[],spawners:[],players:2,setupPl:2,setupLv:1,setupDone:{},iconMode:false};
+
+/* 中途重新整理或鎖屏不該弄丟隊列 */
+const SAVE='pd-state-v1';
+function save(){
+  try{ localStorage.setItem(SAVE, JSON.stringify({
+    level:S.level,queue:S.queue,spawners:S.spawners,players:S.players,iconMode:S.iconMode,
+    bossKind:S.bossKind,bossHard:S.bossHard,bossCur:S.bossCur })); }catch(_){}
+}
+function load(){
+  try{
+    const d=JSON.parse(localStorage.getItem(SAVE)||'null'); if(!d) return;
+    if(d.level) S.level=d.level;
+    if(d.players) S.players=d.players;
+    S.iconMode=!!d.iconMode;
+    if(Array.isArray(d.queue)) S.queue=d.queue;
+    if(Array.isArray(d.spawners)) S.spawners=d.spawners;
+    S.bossKind=d.bossKind||null; S.bossHard=!!d.bossHard;
+    if(typeof d.bossCur==='number') S.bossCur=d.bossCur;
+  }catch(_){}
+}
+
+/* ===== 生怪隊列 ===== */
+function buildQueue(){
+  S.spawners=BASE3.slice();                     /* 生怪磚 1/2/3 各放一隻 */
+  const pool=[];
+  BASE3.forEach(k=>{ pool.push(k,k); });        /* 每種 3 隻，扣掉開場那 1 隻 */
+  LEVELS[S.level].extra.forEach(k=>{ pool.push(k,k,k); });
+  for(let i=pool.length-1;i>0;i--){ const j=rnd(i+1); const t=pool[i]; pool[i]=pool[j]; pool[j]=t; }
+  S.queue=pool;
+  const b=LEVELS[S.level].boss;
+  if(b){ S.bossKind=b[0]; S.bossHard=b[1]; S.bossCur=null; }
+  save();
+}
+function spawnOne(){                            /* 從最前端取出 1 隻 */
+  if(!S.queue.length) return null;
+  const k=S.queue.shift(); save(); return k;
+}
+function defeatOne(k){                          /* 被擊敗的排到隊尾 */
+  S.queue.push(k); save();
+}
+const diceCount=()=>Math.min(7,S.baseDice+(S.enchDie?1:0));
+const rerollTotal=()=>(S.nether?1:0)+(S.ench?1:0);
+const blocked=()=>S.view==='fight'&&S.target.immune===S.kind;
+const busy=()=>S.phase==='charging'||S.phase==='settling';
+const rnd=(function(){
+  var has = (typeof crypto!=='undefined') && crypto && typeof crypto.getRandomValues==='function';
+  if(!has) return function(n){ return Math.floor(Math.random()*n); };
+  return function(n){ var a=new Uint32Array(1); crypto.getRandomValues(a); return a[0]%n; };
+})();
+const $=id=>document.getElementById(id);
+const pick=a=>a[rnd(a.length)];
+const randSide=()=>pick(SIDES);
+
+function makeDie(spec,cap){
+  const s=randSide();
+  return {spec,cap,side:s,val:spec.faces[s],sel:false,settled:true,landing:false,ax:-18,ay:26,vx:0,vy:0,nextTick:0};
+}
+function prepare(){
+  S.dice = S.view==='turn'
+    ? [makeDie(BLOCKDIE,'方塊'),makeDie(MOBDIE,'怪物')]
+    : Array.from({length:diceCount()},()=>makeDie(COMBAT));
+  S.phase='ready'; S.rerollsLeft=0; S.active=[];
+  buildDice(); render();
+}
+
+/* ===== 擲骰 ===== */
+let raf=null,lastT=0;
+function startCharge(mode){
+  if(blocked()||busy()) return;
+  Snd.init();
+  if(mode==='reroll'){
+    S.active=S.dice.map((d,i)=>d.sel?i:-1).filter(i=>i>=0);
+    if(!S.active.length||!S.rerollsLeft) return;
+  }else{
+    const want=S.view==='turn'?2:diceCount();
+    if(S.dice.length!==want) prepare();
+    S.active=S.dice.map((_,i)=>i);
+    S.rerollsLeft=(S.view==='fight')?rerollTotal():0;
+  }
+  S.mode=mode; S.phase='charging';
+  S.dice.forEach((d,i)=>{
+    if(S.active.indexOf(i)<0) return;
+    d.settled=false; d.sel=false;
+    d.vx=(320+Math.random()*420)*(Math.random()<.5?-1:1);
+    d.vy=(420+Math.random()*520)*(Math.random()<.5?-1:1);
+  });
+  paintAll(); paintChargeUI(); lastT=performance.now();
+  if(!raf) raf=requestAnimationFrame(loop);
+}
+function release(){
+  if(S.phase!=='charging') return;
+  S.phase='settling';
+  const now=performance.now();
+  const order=S.active.slice();
+  for(let i=order.length-1;i>0;i--){const j=rnd(i+1);const t=order[i];order[i]=order[j];order[j]=t;}
+  const span=order.length>1?880/(order.length-1):0;
+  order.forEach((idx,k)=>{
+    const d=S.dice[idx];
+    d.side=randSide(); d.val=d.spec.faces[d.side];
+    d.settleAt=now+950+k*span+(Math.random()*120-60);
+  });
+  paintChargeUI();
+}
+function loop(now){
+  const dt=Math.min(0.05,(now-lastT)/1000); lastT=now;
+  let pending=0;
+  for(const i of S.active){
+    const d=S.dice[i];
+    if(d.settled) continue;
+    if(!d.landing&&S.phase==='settling'&&now>=d.settleAt){ land(i); }
+    pending++;
+    if(d.landing){
+      const t=Math.min(1,(now-d.landStart)/460), e=1-Math.pow(1-t,3);
+      d.ax=d.la0+(d.la1-d.la0)*e; d.ay=d.lb0+(d.lb1-d.lb0)*e;
+      drawDie(i);
+      if(t>=1){ d.landing=false; d.settled=true; }
+      continue;
+    }
+    if(!REDUCED){ d.ax+=d.vx*dt; d.ay+=d.vy*dt; drawDie(i); }
+    if(now>=d.nextTick){ d.nextTick=now+90+Math.random()*70; if(Math.random()<.55) Snd.rattle(); }
+  }
+  if(pending){ raf=requestAnimationFrame(loop); return; }
+  raf=null; finish();
+}
+function land(i){
+  const d=S.dice[i], o=ORIENT[d.side];
+  const nextAt=(cur,mod)=>Math.ceil((cur+200-mod)/360)*360+mod;
+  if(REDUCED){ d.ax=o[0]; d.ay=o[1]; d.settled=true; drawDie(i); }
+  else{
+    d.la0=d.ax; d.lb0=d.ay; d.la1=nextAt(d.ax,o[0]); d.lb1=nextAt(d.ay,o[1]);
+    d.landStart=performance.now(); d.landing=true;
+  }
+  Snd.clack(); buzz(24);
+}
+function finish(){
+  S.phase='done';
+  S.mobBranch=null; S.spawnResult=null;
+  if(S.mode==='reroll') S.rerollsLeft--;
+  if(S.view==='fight'&&S.rerollsLeft>0) S.dice.forEach(d=>{d.sel=(d.val===0)});
+  render();
+  if(S.view==='fight'){ const t=total(); Snd.tone(S.target.boss? t>0 : t>=S.target.hp); }
+  else Snd.tone(true);
+}
+
+/* ===== 骰子 DOM ===== */
+/* ================= canvas 立方體：自己算投影，圓角直接畫在輪廓上 ================= */
+const VTX=[[-1,-1,1],[1,-1,1],[1,1,1],[-1,1,1],[-1,-1,-1],[1,-1,-1],[1,1,-1],[-1,1,-1]];
+const FGEO={               /* idx = uv00,uv10,uv11,uv01（由外側看） */
+  f:{idx:[0,1,2,3],n:[0,0,1]},   b:{idx:[5,4,7,6],n:[0,0,-1]},
+  r:{idx:[1,5,6,2],n:[1,0,0]},   l:{idx:[4,0,3,7],n:[-1,0,0]},
+  u:{idx:[4,5,1,0],n:[0,-1,0]},  d:{idx:[3,2,6,7],n:[0,1,0]},
+};
+/* 一顆骰子只有一種材質色；明暗由「該面轉動後的法線 × 光源」算出來 */
+const PAL={
+  dark :{base:'#1a1613', amb:0.46, dif:1.18, cham:0.42, pip:'#ffc94a'},
+  light:{base:'#f2ecdf', amb:0.72, dif:0.34, cham:0.82, pip:'#241d19'},
+};
+const norm=v=>{const m=Math.hypot(v[0],v[1],v[2]);return [v[0]/m,v[1]/m,v[2]/m]};
+const KEY_L=norm([-0.42,-0.74,0.52]);   /* 主光：左上前方 */
+const FILL_L=norm([0.55,0.42,-0.30]);   /* 補光：右下後方，避免背光面全糊成一片 */
+function shade(hex,k){
+  const n=parseInt(hex.slice(1),16);
+  const f=x=>Math.max(0,Math.min(255,Math.round(x*k)));
+  return 'rgb('+f(n>>16&255)+','+f(n>>8&255)+','+f(n&255)+')';
+}
+const dot=(a,b)=>a[0]*b[0]+a[1]*b[1]+a[2]*b[2];
+const lambert=n=>Math.max(0,dot(n,KEY_L))+0.38*Math.max(0,dot(n,FILL_L));
+const PIPMAP={0:[],1:[4],2:[0,8],3:[0,4,8]};
+const rad=d=>d*Math.PI/180;
+function rotate(ax,ay){
+  const ca=Math.cos(rad(ax)),sa=Math.sin(rad(ax)),cb=Math.cos(rad(ay)),sb=Math.sin(rad(ay));
+  return p=>{
+    const x1=p[0]*cb+p[2]*sb, z1=-p[0]*sb+p[2]*cb, y1=p[1];
+    return [x1, y1*ca - z1*sa, y1*sa + z1*ca];
+  };
+}
+/* 凸包：角落視角下 7 個頂點中有 1 個在內部，不能直接依角度連線 */
+function hull(ps){
+  if(ps.length<4) return ps;
+  const p=ps.slice().sort((a,b)=>a[0]-b[0]||a[1]-b[1]);
+  const cross=(o,a,b)=>(a[0]-o[0])*(b[1]-o[1])-(a[1]-o[1])*(b[0]-o[0]);
+  const lo=[],up=[];
+  for(const q of p){ while(lo.length>=2&&cross(lo[lo.length-2],lo[lo.length-1],q)<=0) lo.pop(); lo.push(q); }
+  for(let i=p.length-1;i>=0;i--){ const q=p[i];
+    while(up.length>=2&&cross(up[up.length-2],up[up.length-1],q)<=0) up.pop(); up.push(q); }
+  lo.pop(); up.pop();
+  return lo.concat(up);
+}
+/* 內縮後的圓角多邊形：用圓角 join 的粗描邊把角磨掉 */
+function roundPoly(ctx,pts,color,round){
+  ctx.beginPath();
+  ctx.moveTo(pts[0][0],pts[0][1]);
+  for(let i=1;i<pts.length;i++) ctx.lineTo(pts[i][0],pts[i][1]);
+  ctx.closePath();
+  ctx.fillStyle=color; ctx.fill();
+  if(round>0){ ctx.strokeStyle=color; ctx.lineWidth=round*2; ctx.lineJoin='round'; ctx.lineCap='round'; ctx.stroke(); }
+}
+const shrink=(pts,k)=>{
+  const cx=(pts[0][0]+pts[1][0]+pts[2][0]+pts[3][0])/4, cy=(pts[0][1]+pts[1][1]+pts[2][1]+pts[3][1])/4;
+  return pts.map(p=>[cx+(p[0]-cx)*k, cy+(p[1]-cy)*k]);
+};
+const bilerp=(q,u,v)=>{
+  const a=[q[0][0]+(q[1][0]-q[0][0])*u, q[0][1]+(q[1][1]-q[0][1])*u];
+  const b=[q[3][0]+(q[2][0]-q[3][0])*u, q[3][1]+(q[2][1]-q[3][1])*u];
+  return [a[0]+(b[0]-a[0])*v, a[1]+(b[1]-a[1])*v];
+};
+function drawDie(i){
+  const d=S.dice[i];
+  const cv=document.querySelector('.cell[data-i="'+i+'"] .dcv'); if(!cv) return;
+  const ctx=cv.getContext('2d'), dpr=cv._dpr||1, W=cv.width/dpr, H=cv.height/dpr;
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  ctx.clearRect(0,0,W,H);
+  const pal=PAL[d.spec.kind], half=W*0.23, D=W*2.6, cx=W/2, cy=H/2;
+  const R=rotate(d.ax,d.ay);
+  const P=VTX.map(v=>{
+    const t=R(v), z=t[2]*half, k=D/(D-z);
+    return [cx+t[0]*half*k, cy+t[1]*half*k, z];
+  });
+  /* 1. 整體輪廓：可見頂點的凸包，用圓角描邊 → 輪廓真的是圓的 */
+  const vis=[];
+  for(const key in FGEO){ if(R(FGEO[key].n)[2]>0.0001) vis.push(key); }
+  const set=new Set(); vis.forEach(k=>FGEO[k].idx.forEach(x=>set.add(x)));
+  const pts=hull([...set].map(x=>[P[x][0],P[x][1]]));
+  const rnd=W*0.065;
+  roundPoly(ctx,pts,shade(pal.base,pal.amb*pal.cham),rnd);
+  /* 2. 每個可見面：內縮一點後圓角填色，露出的縫就是倒角 */
+  vis.sort((a,b)=>{
+    const za=FGEO[a].idx.reduce((t,x)=>t+P[x][2],0), zb=FGEO[b].idx.reduce((t,x)=>t+P[x][2],0);
+    return za-zb;
+  });
+  for(const key of vis){
+    const q=FGEO[key].idx.map(x=>[P[x][0],P[x][1]]);
+    const k=pal.amb+pal.dif*lambert(R(FGEO[key].n));
+    roundPoly(ctx,shrink(q,0.80),shade(pal.base,k),W*0.055);
+    drawPips(ctx,d,key,shrink(q,0.86),W,pal,k);
+  }
+}
+function drawPips(ctx,d,key,q,W,pal,k){
+  const v=d.spec.faces[key];
+  if(d.spec===BLOCKDIE){
+    const b=BLOCKS[v];
+    if(b.hex){
+      const sq=[bilerp(q,.3,.3),bilerp(q,.7,.3),bilerp(q,.7,.7),bilerp(q,.3,.7)];
+      roundPoly(ctx,sq,shade(b.hex,0.72+0.42*(k-pal.amb)/Math.max(0.01,pal.dif)),W*0.012);
+    }else{
+      const c=bilerp(q,.5,.5);
+      const s1=bilerp(q,.5,.1), s2=bilerp(q,.5,.9);
+      const size=Math.hypot(s2[0]-s1[0],s2[1]-s1[1]);
+      ctx.fillStyle=shade('#2f2622',0.9); ctx.textAlign='center'; ctx.textBaseline='middle';
+      ctx.font='700 '+size.toFixed(1)+'px ui-monospace,Menlo,monospace';
+      ctx.fillText('?',c[0],c[1]);
+    }
+    return;
+  }
+  const cells=PIPMAP[v]||[];
+  const isHit=(d.spec===COMBAT);
+  for(const idx of cells){
+    const u=(idx%3)*0.5*0.66+0.17, w=Math.floor(idx/3)*0.5*0.66+0.17;
+    const c=bilerp(q,u,w);
+    const e=bilerp(q,u+0.11,w), f2=bilerp(q,u,w+0.11);
+    const r=(Math.hypot(e[0]-c[0],e[1]-c[1])+Math.hypot(f2[0]-c[0],f2[1]-c[1]))/2;
+    if(isHit){
+      const sq=[bilerp(q,u-0.1,w-0.1),bilerp(q,u+0.1,w-0.1),bilerp(q,u+0.1,w+0.1),bilerp(q,u-0.1,w+0.1)];
+      roundPoly(ctx,sq,shade(pal.pip,0.82+0.3*(k-pal.amb)/Math.max(0.01,pal.dif)),W*0.008);
+    }else{
+      ctx.beginPath(); ctx.arc(c[0],c[1],Math.max(1.2,r),0,Math.PI*2);
+      ctx.fillStyle=shade(pal.pip,0.85+0.25*(k-pal.amb)/Math.max(0.01,pal.dif)); ctx.fill();
+    }
+  }
+}
+function sizeCanvases(){
+  document.querySelectorAll('.cell').forEach(cell=>{
+    const cv=cell.querySelector('.dcv'); if(!cv) return;
+    const w=Math.round((cell.clientWidth||62)*1.3), dpr=Math.min(3,window.devicePixelRatio||1);
+    cv.width=Math.round(w*dpr); cv.height=Math.round(w*dpr); cv._dpr=dpr;
+  });
+  S.dice.forEach((_,i)=>drawDie(i));
+}
+/* 分排：一排最多 4 顆，且上下排數量差不超過 2 */
+function rowsFor(n){
+  if(n<=4) return [n];
+  const top=Math.ceil(n/2);
+  return [top, n-top];               // 5→3,2  6→3,3  7→4,3
+}
+function cellHTML(d,i){
+  return '<button class="cell" data-i="'+i+'"><canvas class="dcv"></canvas>'+
+    (d.cap?'<span class="cap">'+d.cap+'</span>':'')+'</button>';
+}
+function buildDice(){
+  const turn=S.view==='turn';
+  let k=0, rows='';
+  for(const n of rowsFor(S.dice.length)){
+    rows+='<div class="drow">';
+    for(let j=0;j<n;j++,k++) rows+=cellHTML(S.dice[k],k);
+    rows+='</div>';
+  }
+  $('diceArea').innerHTML='<div class="grid'+(turn?' turn':'')+'">'+rows+'</div>';
+  $('diceArea').querySelectorAll('.cell').forEach(el=>{
+    el.onclick=()=>{
+      if(busy()||S.view!=='fight'||!S.rerollsLeft) return;
+      const i=+el.dataset.i; S.dice[i].sel=!S.dice[i].sel; paintAll(); render();
+    };
+  });
+  sizeCanvases(); paintAll();
+}
+function paintAll(){
+  S.dice.forEach((d,i)=>{
+    const cell=document.querySelector('.cell[data-i="'+i+'"]'); if(!cell) return;
+    cell.classList.toggle('idle',S.phase==='ready');
+    cell.classList.toggle('sel',!!d.sel&&!busy());
+    cell.querySelectorAll('.tag').forEach(n=>n.remove());
+    if(d.sel&&!busy()){
+      const s=document.createElement('span'); s.className='tag'; s.textContent='重骰'; cell.appendChild(s);
+    }
+    if(!busy()) drawDie(i);
+    cell.setAttribute('aria-label', S.phase==='ready' ? '骰子 '+(i+1)+'，待擲'
+      : (d.settled ? '骰子 '+(i+1)+'，'+(d.spec===BLOCKDIE?BLOCKS[d.val].name:d.val)+(d.sel?'，已選擇重骰':'')
+                   : '搖骰中'));
+  });
+}
+
+/* ===== 介面 ===== */
+function paintChargeUI(){
+  const charging=S.phase==='charging';
+  $('tray').classList.toggle('live',busy());
+  $('readout').hidden=true; $('wcard').hidden=true;
+  $('btnRoll').classList.remove('charging'); $('btnReroll').classList.remove('charging');
+  if(charging) (S.mode==='reroll'?$('btnReroll'):$('btnRoll')).classList.add('charging');
+  $('btnRoll').disabled=busy()&&S.mode!=='roll';
+  $('btnReroll').disabled=busy()&&S.mode!=='reroll';
+  $('btnApply').disabled=busy();
+  $('hint').textContent=charging?'放開就定骰':'骰子還在滾…';
+  if(S.mode==='roll') $('btnRoll').textContent=charging?'放開擲出':'按住搖骰';
+  else $('btnReroll').textContent=charging?'放開擲出':'重骰 '+S.active.length+' 顆';
+}
+
+function render(){
+  const turn=S.view==='turn';
+  $('tabTurn').setAttribute('aria-pressed',turn);
+  $('tabFight').setAttribute('aria-pressed',!turn);
+  $('fightCfg').hidden=turn;
+  $('foot').innerHTML=turn?'方塊骰 = 紅 灰 金 棕 黑 ? · 怪物骰 = 1 2 3'
+                          :'每顆戰鬥骰 = 0 · 0 · 1 · 1 · 2 · 2';
+  $('kSword').innerHTML=icon('sword',22)+'<span>劍</span>';
+  $('kBow').innerHTML=icon('bow',22)+'<span>弓</span>';
+
+  const ts=$('tstrip');
+  ts.hidden=turn;
+  if(!turn){
+    ts.innerHTML=icon(S.target.ic,26)+'<span class="t1">'+S.target.name+'</span>'+
+      '<span class="t2">'+hearts(S.target.hp,16)+(S.target.boss?' 累積':'')+'</span>';
+  }
+
+  if(!turn){
+    $('kSword').setAttribute('aria-pressed',S.kind==='sword');
+    $('kBow').setAttribute('aria-pressed',S.kind==='bow');
+    $('dVal').textContent=S.baseDice;
+    $('dMinus').disabled=S.baseDice<=1; $('dPlus').disabled=S.baseDice>=6;
+    $('mNether').setAttribute('aria-pressed',S.nether);
+    $('mReroll').setAttribute('aria-pressed',S.ench);
+    $('mDie').setAttribute('aria-pressed',S.enchDie);
+    $('loadout').innerHTML='丟 <b>'+diceCount()+'</b> 顆 · 可重骰 <b>'+rerollTotal()+'</b> 次';
+    $('chips').querySelectorAll('.chip').forEach(b=>b.setAttribute('aria-pressed',b.dataset.id===S.target.id));
+    $('tgtNote').textContent=S.target.boss?'傷害累積':'需要 '+S.target.hp+' 點';
+    $('warn').innerHTML=blocked()
+      ? icon(S.target.ic,18)+'<span>'+S.target.name+'不能用'+(S.kind==='sword'?'劍':'弓')+'攻擊</span>' : '';
+    $('bossPanel').hidden=!S.target.boss;
+    if(S.target.boss){
+      const max=S.target.hp,cur=Math.max(0,S.bossCur==null?max:S.bossCur);
+      $('bossName').textContent=max===20?'野火 / 遠古豬布獸':'困難面';
+      $('bossCur').textContent=cur; $('bossMax').textContent=max;
+      $('bossBar').innerHTML=Array.from({length:max},(_,i)=>'<i class="'+(i<cur?'f2':'')+'"></i>').join('');
+    }
+  }
+
+  $('qpanel').hidden=!turn;
+  if(turn) renderQueue();
+  $('bossPick').hidden=!turn;
+  if(turn){
+    $('bchips').querySelectorAll('.chip').forEach(b=>
+      b.setAttribute('aria-pressed', (b.dataset.b||null)===S.bossKind));
+    $('bEasy').setAttribute('aria-pressed',!S.bossHard);
+    $('bHard').setAttribute('aria-pressed',S.bossHard);
+    $('bEasy').disabled=$('bHard').disabled=$('bReveal').disabled=!S.bossKind;
+    $('bReveal').setAttribute('aria-pressed',bossUp());
+    $('bossTrait').textContent = !S.bossKind ? '尚未指定頭目'
+      : (bossUp()? BOSSES[S.bossKind].trait+' · 血量 '+S.bossCur
+                 : '完成 3 個 Piglin 任務才能翻開傳送門條');
+    if(S.phase==='done'&&S.dice[1]){ $('bossRow').innerHTML=bossLine(S.dice[1].val); }
+  }
+
+  const done=S.phase==='done';
+  $('readout').hidden=!(done&&!turn);
+  $('wcard').hidden=!(done&&turn);
+  if(done&&!turn) renderFight();
+  if(done&&turn) renderTurn();
+  $('tray').classList.toggle('live',busy());
+  paintAll();
+
+  const selN=S.dice.filter(d=>d.sel).length;
+  $('btnRoll').disabled=blocked()||busy();
+  $('btnRoll').textContent=done?'按住重新擲骰':'按住搖骰';
+  const rr=$('btnReroll');
+  rr.hidden=!(done&&!turn&&S.rerollsLeft>0);
+  rr.disabled=selN===0;
+  rr.textContent=selN?'按住重骰 '+selN+' 顆　剩 '+S.rerollsLeft+' 次':'點骰子選要重骰的　剩 '+S.rerollsLeft+' 次';
+  const ap=$('btnApply');
+  ap.hidden=!(done&&!turn&&S.target.boss);
+  if(!ap.hidden){
+    const t=total(); ap.textContent='扣除 '+t+' 點傷害';
+    ap.disabled=t===0||(S.bossCur==null?S.target.hp:S.bossCur)<=0;
+  }
+  $('hint').textContent=busy()?'骰子還在滾…'
+    :(done?(S.rerollsLeft>0?'還可以重骰':'按住按鈕再擲一次'):'按住不放，放開才會定骰');
+}
+const total=()=>S.dice.reduce((s,d)=>s+(typeof d.val==='number'?d.val:0),0);
+
+/* 頭目「已現身」= 已指定頭目 且 已翻開傳送門條（開始追蹤血量）。
+   只有現身之後才每回合啟動、且不再生成新怪物。 */
+const bossUp=()=>!!S.bossKind && S.bossCur!==null;
+
+/* 怪物骰的判定 */
+function mobPlan(n){
+  if(bossUp()){
+    return '<p>頭目已現身，<b>不再生成新怪物</b>。頭目本回合必定啟動；場上若有 '+n+
+      ' 號怪物，一併啟動。<em>啟動順序由你決定。</em></p>';
+  }
+  if(S.mobBranch==='act'){
+    return '<p><b>啟動場上所有 '+n+' 號怪物。</b>'+
+      '<em>順序自選，一隻處理完再換下一隻：先移動朝最近的玩家，進入攻擊範圍就停下並造成傷害。</em></p>';
+  }
+  if(S.mobBranch==='spawn'){
+    const who=S.spawnResult ? '從隊列前端取出 <b>'+S.spawnResult+'</b>。'
+                            : '<b>隊列已空</b>，沒有怪物可以生成。';
+    return '<p>'+who+'<ol class="steps">'+
+      SPAWNRULES.slice(1,4).map(r=>'<li>'+r+'</li>').join('')+'</ol></p>';
+  }
+  return '<p>場上有 '+n+' 號怪物嗎？<span class="ask">'+
+    '<button class="blk mini" data-branch="act">有，啟動</button>'+
+    '<button class="blk mini" data-branch="spawn">沒有，生怪</button></span></p>';
+}
+function bossLine(n){
+  if(!bossUp()) return '';
+  const B=BOSSES[S.bossKind], side=S.bossHard?'hard':'easy';
+  return '<div class="wline"><span class="wchip">'+icon('boss',22)+'</span><span class="wval">'+
+    '<strong>'+B.name+(S.bossHard?' · 困難':' · 簡單')+'</strong><p>'+B[side][n]+
+    '<em>頭目每回合都會啟動（它帶有全部號碼）；同號碼的其他怪物照常啟動，但不再生成新怪物。</em></p></span></div>';
+}
+function renderTurn(){
+  const b=S.dice[0], m=S.dice[1], t=BLOCKTEXT[b.val], col=BLOCKS[b.val].hex;
+  $('wIcon1').innerHTML=col?'<span class="swatch" style="width:16px;height:16px;background:'+col+'"></span>'
+                           :'<span style="font-family:var(--mono);font-size:16px;color:var(--bone)">?</span>';
+  $('wBlock').innerHTML='<strong>'+t[0]+'</strong><p>'+t[1]+
+    '<em>'+(b.val==='wild'?'擲到「?」一定要消耗，不能跳過。':'最上層有裸露的該色才要拿；沒有就不用消耗。')+'</em></p>';
+  $('wIcon2').innerHTML='<span style="font-family:var(--mono);font-size:17px;font-weight:700;color:var(--amber)">'+m.val+'</span>';
+  $('wMob').innerHTML='<strong>'+m.val+' 號怪物</strong>'+mobPlan(m.val);
+  $('wMob').querySelectorAll('[data-branch]').forEach(b=>{
+    b.onclick=()=>{
+      S.mobBranch=b.dataset.branch;
+      if(S.mobBranch==='spawn'){                 /* 真的從隊列前端取出下一隻 */
+        const k=spawnOne();
+        S.spawnResult = k? MOBNAME(k) : null;
+        renderQueue();
+      }
+      renderTurn();
+    };
+  });
+  $('bossRow').innerHTML=bossLine(m.val);
+}
+
+function renderFight(){
+  const t=total(),boss=S.target.boss;
+  $('total').textContent=t;
+  if(boss){
+    $('need').textContent=' 點傷害';
+    const cur=S.bossCur==null?S.target.hp:S.bossCur;
+    $('verdict').className='verdict '+(t>=cur?'kill':'short');
+    $('verdict').innerHTML=t>=cur?'足以擊倒頭目':'擊倒還差 '+(cur-t)+' 點';
+  }else{
+    $('need').textContent=' / '+S.target.hp;
+    const ok=t>=S.target.hp;
+    $('verdict').className='verdict '+(ok?'kill':(S.rerollsLeft?'short':'dead'));
+    $('verdict').innerHTML=ok?'擊殺<br>抽 2 張留 1 張':(S.rerollsLeft?'還差 '+(S.target.hp-t)+' 點':'未擊殺<br>武器損壞');
+  }
+  const SEG=24; let fill,label,val,amber=false;
+  const selN=S.dice.filter(d=>d.sel).length;
+  if(boss){
+    const kept=S.dice.filter(d=>!d.sel).reduce((s,d)=>s+d.val,0);
+    const exp=(selN&&S.rerollsLeft)?kept+selN:t;
+    fill=exp/(diceCount()*2); amber=true;
+    label=(selN&&S.rerollsLeft)?'重骰 '+selN+' 顆後預期':'本次傷害'; val=exp+' 點';
+  }else{
+    const T=S.target.hp; let p;
+    if(S.rerollsLeft&&selN){
+      const k=counts(S.dice.filter(d=>!d.sel).map(d=>d.val));
+      p=expand(k[0],k[1],k[2],selN,S.rerollsLeft-1,T);
+    }else p=t>=T?1:0;
+    fill=p; amber=p>=1;
+    label=S.rerollsLeft?(selN?'重骰 '+selN+' 顆的成功率':'維持現狀'):'結果';
+    val=Math.round(p*100)+'%';
+  }
+  $('bar').innerHTML=Array.from({length:SEG},(_,i)=>
+    '<i class="'+(i<Math.round(fill*SEG)?'f2'+(amber?' amber':''):'')+'"></i>').join('');
+  $('barLeft').textContent=label; $('barVal').textContent=val; $('barVal').className=amber?'amber':'';
+}
+
+/* ===== 長按 ===== */
+function bindHold(el,mode){
+  el.addEventListener('contextmenu',e=>e.preventDefault());
+  const down=e=>{
+    if(el.disabled) return;
+    if(e.cancelable) e.preventDefault();
+    if(e.pointerId!==undefined){ try{el.setPointerCapture(e.pointerId)}catch(_){} }
+    startCharge(mode);
+  };
+  const up=e=>{ if(e.cancelable) e.preventDefault(); release(); };
+  if(window.PointerEvent){
+    el.addEventListener('pointerdown',down);
+    el.addEventListener('pointerup',up); el.addEventListener('pointercancel',up);
+  }else{                        /* 舊 WebView：改用 touch / mouse */
+    el.addEventListener('touchstart',down,{passive:false});
+    el.addEventListener('touchend',up,{passive:false});
+    el.addEventListener('touchcancel',up,{passive:false});
+    el.addEventListener('mousedown',down); el.addEventListener('mouseup',up);
+    el.addEventListener('mouseleave',up);
+  }
+  el.addEventListener('keydown',e=>{if((e.key===' '||e.key==='Enter')&&!e.repeat){e.preventDefault();startCharge(mode)}});
+  el.addEventListener('keyup',e=>{if(e.key===' '||e.key==='Enter'){e.preventDefault();release()}});
+}
+bindHold($('btnRoll'),'roll'); bindHold($('btnReroll'),'reroll');
+
+/* ===== 事件 ===== */
+/* ===== 生怪隊列面板 ===== */
+function typesInPlay(){ return BASE3.concat(LEVELS[S.level].extra); }
+function qIcons(list,markNext){
+  if(!list.length) return '<span class="empty2">（空）</span>';
+  return list.map((k,i)=>'<span class="qi'+(markNext&&i===0?' next':'')+'" title="'+MOBNAME(k)+'">'+
+    icon(k,22)+(markNext&&i===0?'<i>▲</i>':'')+'</span>').join('');
+}
+function renderQueue(){
+  const lv=LEVELS[S.level];
+  $('lvseg').innerHTML=[1,2,3,4,5].map(n=>
+    '<button class="blk" data-lv="'+n+'" aria-pressed="'+(n===S.level)+'">'+n+'</button>').join('');
+  $('lvseg').querySelectorAll('[data-lv]').forEach(b=>{
+    b.onclick=()=>{ if(busy())return; S.level=+b.dataset.lv; buildQueue(); render(); };
+  });
+  const extra=lv.extra.length? lv.extra.map(MOBNAME).join('、') : '無追加怪物';
+  $('lvNote').textContent=lv.tiles+' 張地圖磚 · '+extra+' · '+S.players+' 人（Piglin '+(S.players<=2?'1-2':'3-4')+' 面）';
+  $('qspawn').innerHTML=qIcons(S.spawners,false);
+  $('qlist').innerHTML=qIcons(S.queue,true);
+  $('qsum').innerHTML='生怪隊列'+(S.queue.length
+    ? ' · 下一隻 <em>'+MOBNAME(S.queue[0])+'</em>' : ' · <em>隊列已空</em>');
+  $('qhint').innerHTML = bossUp()
+    ? '頭目已現身 → <b>不再生成新怪物</b>；同號碼的其他怪物照常啟動。'
+    : '生成時放在<b>離當前玩家最近</b>的空生怪磚上；沒有空磚就不生成，隊列不動。<b>新生成的怪物不啟動</b>。';
+  $('qGen').disabled=!S.queue.length;
+  $('qKill').disabled=false;
+}
+$('qGen').onclick=()=>{
+  if(busy())return;
+  const k=spawnOne(); if(!k) return;
+  $('qhint').innerHTML='取出 <b>'+MOBNAME(k)+'</b> 放到離你最近的空生怪磚，<b>不要啟動它</b>。';
+  renderQueue(); Snd.init(); Snd.clack();
+};
+$('qKill').onclick=()=>{
+  if(busy())return;
+  const box=$('qpick');
+  box.hidden=!box.hidden;
+  if(box.hidden){ box.innerHTML=''; return; }
+  box.innerHTML=typesInPlay().map(k=>
+    '<button class="blk" data-k="'+k+'">'+icon(k,20)+'<span>'+MOBNAME(k)+'</span></button>').join('');
+  box.querySelectorAll('[data-k]').forEach(b=>{
+    b.onclick=()=>{
+      defeatOne(b.dataset.k);
+      $('qhint').innerHTML='<b>'+MOBNAME(b.dataset.k)+'</b> 已排到隊尾。';
+      box.hidden=true; box.innerHTML=''; renderQueue();
+    };
+  });
+};
+$('qNew').onclick=()=>{ if(busy())return; buildQueue(); renderQueue(); render(); };
+
+/* ===== 開局設置流程 ===== */
+function renderSetup(){
+  const pl=S.setupPl, lv=S.setupLv, L=LEVELS[lv];
+  $('plSeg').innerHTML=[1,2,3,4].map(n=>
+    '<button class="blk" data-pl="'+n+'" aria-pressed="'+(n===pl)+'">'+n+'</button>').join('');
+  $('lvSeg2').innerHTML=[1,2,3,4,5].map(n=>
+    '<button class="blk" data-slv="'+n+'" aria-pressed="'+(n===lv)+'">'+n+'</button>').join('');
+  $('plSeg').querySelectorAll('[data-pl]').forEach(b=>{
+    b.onclick=()=>{ S.setupPl=+b.dataset.pl; S.setupDone={}; renderSetup(); };
+  });
+  $('lvSeg2').querySelectorAll('[data-slv]').forEach(b=>{
+    b.onclick=()=>{ S.setupLv=+b.dataset.slv; S.setupDone={}; renderSetup(); };
+  });
+  const bossName=L.boss?BOSSES[L.boss[0]].name+(L.boss[1]?'（困難）':'（簡單）'):'頭目自選';
+  $('lvDesc').textContent=L.tiles+' 張地圖磚 · '+bossName+' · Piglin '+(pl<=2?'1-2':'3-4')+' 面';
+  $('iconToggle').setAttribute('aria-pressed',S.iconMode);
+  $('iconToggle').textContent = S.iconMode? '圖示模式（開）· 點名詞看說明' : '圖示模式（關）· 目前顯示文字';
+  const plan=setupPlan(pl,lv);
+  let total=0, done=0;
+  $('setupList').innerHTML=plan.map((g,gi)=>
+    '<div class="sgrp"><h3>'+g.t+'<i></i></h3>'+
+    g.items.map((it,ii)=>{
+      const key=gi+'-'+ii; total++; if(S.setupDone[key]) done++;
+      return '<div class="ck'+(S.setupDone[key]?' on':'')+'" data-k="'+key+'">'+
+             '<span class="box"></span><span class="txt">'+iconify(it)+'</span></div>';
+    }).join('')+'</div>').join('');
+  $('setupList').querySelectorAll('.ck').forEach(el=>{
+    el.onclick=()=>{ const k=el.dataset.k; S.setupDone[k]=!S.setupDone[k]; renderSetup(); };
+  });
+  $('setupTag').textContent=done+' / '+total+' 完成';
+  /* 圖示模式下附一張對照表，避免看不懂圖 */
+  $('legend').hidden=!S.iconMode;
+  if(S.iconMode){
+    const used=BASE3.concat(LEVELS[lv].extra);
+    const LG=16;
+    $('legend').innerHTML=used.map(k=>'<span class="lg">'+icon(k,LG)+MOBNAME(k)+'</span>').join('')+
+      '<span class="lg">'+icon('boss',LG)+'頭目</span>'+
+      '<span class="lg">'+icon('chest',LG)+'寶箱</span>'+
+      '<span class="lg">'+icon('heart',LG)+'心</span>'+
+      '<span class="lg">'+icon('dieB',LG)+'戰鬥骰</span>'+
+      '<span class="lg">'+icon('dieW',LG)+'白骰</span>';
+  }
+}
+$('newGame').onclick=()=>{
+  if(busy())return;
+  S.setupPl=S.players; S.setupLv=S.level; S.setupDone={};
+  $('setupOvl').hidden=false; renderSetup();
+};
+$('iconToggle').onclick=()=>{ S.iconMode=!S.iconMode; save(); renderSetup(); renderActs(); };
+$('setupClose').onclick=()=>{ $('setupOvl').hidden=true; };
+$('setupGo').onclick=()=>{
+  S.players=S.setupPl; S.level=S.setupLv;
+  buildQueue();                         /* 依等級重排隊列、設定頭目 */
+  const L=LEVELS[S.level];
+  if(!L.boss){ S.bossKind=null; S.bossHard=false; }   /* Level 3 由玩家自選 */
+  S.bossCur=null;                       /* 尚未翻開傳送門條 */
+  S.mobBranch=null; S.spawnResult=null;
+  save(); $('setupOvl').hidden=true;
+  renderQueue(); prepare();
+};
+
+/* 頭目選單 */
+const BKEYS=[[null,'未現身'],['wildfire','野火'],['hoglin','遠古豬布獸']];
+$('bchips').innerHTML=BKEYS.map(([k,label])=>
+  '<button class="blk chip" data-b="'+(k||'')+'" aria-pressed="'+(k===S.bossKind)+'">'+
+  (k?icon('boss',24):'')+'<span class="nm"><span>'+label+'</span></span></button>').join('');
+$('bchips').querySelectorAll('.chip').forEach(b=>{
+  b.onclick=()=>{ if(busy())return; S.bossKind=b.dataset.b||null; save(); render(); };
+});
+$('bEasy').onclick=()=>{ if(busy())return; S.bossHard=false; if(bossUp()) S.bossCur=20; save(); render(); };
+$('bHard').onclick=()=>{ if(busy())return; S.bossHard=true;  if(bossUp()) S.bossCur=25; save(); render(); };
+$('bReveal').onclick=()=>{                       /* 翻開傳送門條 → 頭目登場 */
+  if(busy()||!S.bossKind) return;
+  S.bossCur = bossUp() ? null : (S.bossHard?25:20);
+  save(); render();
+};
+
+/* 回合與行動速查 */
+function renderActs(){
+  const grp=(title,inner,cls)=>'<div class="agrp'+(cls?' '+cls:'')+'"><h4>'+title+'</h4>'+inner+'</div>';
+  const flow=grp('回合流程','<ol class="steps">'+TURNFLOW.map(x=>'<li>'+iconify(x)+'</li>').join('')+'</ol>','hi');
+  const basic=grp('基本行動（不會損壞物品）',
+    BASICACTS.map(([n,t])=>'<div class="arow"><span class="an">'+n+'</span>'+
+      '<span class="at">'+iconify(t)+'</span></div>').join(''));
+  const items=grp('使用物品（用完即損壞）',
+    ITEMACTS.map(o=>'<div class="arow i3">'+
+      '<span class="ii">'+icon(o.ic,20)+o.n+'</span>'+
+      '<span class="ia">'+o.a+'</span>'+
+      '<span class="at">'+iconify(o.t)+'</span></div>').join(''));
+  const blocks=grp('挖到方塊後二選一：使用顏色功能，或放到 Piglin 板',
+    BLOCKUSE.map(b=>'<div class="arow b3">'+
+      '<span class="bc">'+cubeSVG(b.hex,17)+b.c+'</span>'+
+      '<span class="bn">'+b.n+'</span>'+
+      '<span class="at">'+iconify(b.t)+'</span></div>').join('')+
+    '<div class="arow"><span class="an">Piglin 板</span><span class="at">'+
+    '每一欄只能放<b>同一種顏色</b>，第一塊決定該欄顏色。可以先做 C 再做 A。</span></div>');
+  const limits=grp('常見限制','<ul>'+ACTLIMITS.map(x=>'<li>'+iconify(x)+'</li>').join('')+'</ul>');
+  $('actbody').innerHTML=flow+basic+items+blocks+limits;
+}
+renderActs();
+
+/* 怪物速查 */
+$('refbody').innerHTML =
+  MOBREF.map(m=>'<div class="mrow"><span class="mi">'+icon(m.ic,26)+'</span>'+
+    '<span class="mt"><strong>'+m.name+'</strong>'+hearts(m.hp,14)+
+    (m.imm?'<span class="imm">'+m.imm+'</span>':'')+
+    '<br>'+m.act+'</span></div>').join('') +
+  '<div class="rules"><b>啟動</b><ul>'+ACTRULES.map(r=>'<li>'+r+'</li>').join('')+'</ul>'+
+  '<b>生怪</b><ul>'+SPAWNRULES.map(r=>'<li>'+r+'</li>').join('')+'</ul></div>';
+
+$('chips').innerHTML=MOBS.map(m=>
+  '<button class="blk chip" data-id="'+m.id+'" aria-pressed="'+(m.id===S.target.id)+'">'+
+  icon(m.ic,30)+'<span class="nm"><span>'+m.name+'</span>'+hearts(m.hp,14)+'</span></button>').join('');
+$('chips').querySelectorAll('.chip').forEach(b=>{
+  b.onclick=()=>{
+    if(busy())return;
+    S.target=MOBS.filter(m=>m.id===b.dataset.id)[0];
+    if(S.target.boss&&S.bossCur===null) S.bossCur=S.target.hp;
+    if(!S.target.boss) S.bossCur=null;
+    prepare();
+  };
+});
+const wire=(id,fn)=>{$(id).onclick=()=>{if(busy())return;fn();prepare()}};
+wire('kSword',()=>S.kind='sword'); wire('kBow',()=>S.kind='bow');
+wire('dMinus',()=>S.baseDice=Math.max(1,S.baseDice-1));
+wire('dPlus', ()=>S.baseDice=Math.min(6,S.baseDice+1));
+wire('mNether',()=>S.nether=!S.nether);
+wire('mReroll',()=>S.ench=!S.ench);
+wire('mDie',  ()=>S.enchDie=!S.enchDie);
+wire('tabTurn', ()=>S.view='turn');
+wire('tabFight',()=>S.view='fight');
+$('btnApply').onclick=()=>{
+  if(busy())return;
+  S.bossCur=Math.max(0,(S.bossCur==null?S.target.hp:S.bossCur)-total()); save(); prepare();
+};
+$('bossReset').onclick=()=>{if(busy())return;S.bossCur=S.target.hp;prepare()};
+$('mute').onclick=()=>{
+  Snd.on=!Snd.on; Snd.init();
+  $('mute').setAttribute('aria-pressed',Snd.on);
+  $('mute').textContent='音效 '+(Snd.on?'開':'關');
+};
+
+load();
+if(!S.queue.length && !S.spawners.length) buildQueue();
+window.addEventListener('resize',()=>sizeCanvases());
+/* service worker 只在 https / localhost 下註冊；file:// 不支援 */
+if('serviceWorker' in navigator && /^https:$/.test(location.protocol)){
+  navigator.serviceWorker.register('sw.js').catch(()=>{});
+}
+prepare();
+</script>
+</body>
+</html>
