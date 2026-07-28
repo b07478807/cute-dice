@@ -1,5 +1,5 @@
 /* 離線快取：改版時把 VERSION 加一，使用者下次開啟就會拿到新檔 */
-const VERSION = 'pd-v12';
+const VERSION = 'pd-v14';
 const FILES = [
   './',
   './index.html',
