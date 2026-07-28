@@ -191,6 +191,9 @@
   .qpick{display:flex;flex-wrap:wrap;gap:6px}
   .qpick .blk{flex:1 0 30%;min-height:46px;font-size:11px;display:flex;align-items:center;
     justify-content:center;gap:5px}
+  .motionhint{display:block;width:100%;border:0;cursor:pointer;text-align:left;
+    background:#f2b544;color:#2a1f14;font:12px/1.5 var(--sans);padding:11px 13px;margin-bottom:12px}
+  .motionhint b{font-weight:700;text-decoration:underline}
   .ng{width:100%;min-height:54px;font-size:13px;letter-spacing:.2em;font-weight:700;margin-bottom:12px;
     background:var(--amber)!important;color:#2a1f14!important;
     box-shadow:inset -3px -3px 0 #b8842c, inset 3px 3px 0 #ffe0a0!important}
@@ -380,6 +383,10 @@
       <div class="qpick" id="qpick" hidden></div>
     </div>
   </details>
+
+  <button class="motionhint" id="motionHint" hidden>
+    動畫已被系統的「減少動態／低耗電模式」關閉　<b>點這裡開啟</b>
+  </button>
 
   <div class="tray" id="tray">
     <div class="tstrip" id="tstrip" hidden></div>
@@ -1013,14 +1020,14 @@ const REDUCED=matchMedia('(prefers-reduced-motion:reduce)').matches;
 const S={view:'turn',kind:'sword',baseDice:3,nether:false,ench:false,enchDie:false,
   target:MOBS[0],dice:[],rerollsLeft:0,phase:'ready',mode:'roll',active:[],bossCur:null,
   bossKind:null,bossHard:false,mobBranch:null,spawnResult:null,
-  motion:!REDUCED,                    /* 預設跟隨系統的「減少動態」設定，可自行改 */
+  motion:!REDUCED, motionSet:false,   /* motionSet=true 表示使用者自己選過，之後不受系統影響 */
   level:1,queue:[],spawners:[],players:2,setupPl:2,setupLv:1,setupDone:{},iconMode:false};
 
 /* 中途重新整理或鎖屏不該弄丟隊列 */
 const SAVE='pd-state-v1';
 function save(){
   try{ localStorage.setItem(SAVE, JSON.stringify({
-    level:S.level,queue:S.queue,spawners:S.spawners,players:S.players,iconMode:S.iconMode,motion:S.motion,
+    level:S.level,queue:S.queue,spawners:S.spawners,players:S.players,iconMode:S.iconMode,motion:S.motion,motionSet:S.motionSet,
     bossKind:S.bossKind,bossHard:S.bossHard,bossCur:S.bossCur })); }catch(_){}
 }
 function load(){
@@ -1030,6 +1037,7 @@ function load(){
     if(d.players) S.players=d.players;
     S.iconMode=!!d.iconMode;
     if(typeof d.motion==='boolean') S.motion=d.motion;
+    S.motionSet=!!d.motionSet;
     if(Array.isArray(d.queue)) S.queue=d.queue;
     if(Array.isArray(d.spawners)) S.spawners=d.spawners;
     S.bossKind=d.bossKind||null; S.bossHard=!!d.bossHard;
@@ -1745,11 +1753,16 @@ $('btnApply').onclick=()=>{
   S.bossCur=Math.max(0,(S.bossCur==null?S.target.hp:S.bossCur)-total()); save(); prepare();
 };
 $('bossReset').onclick=()=>{if(busy())return;S.bossCur=S.target.hp;prepare()};
-$('motionBtn').onclick=()=>{
-  if(busy())return;
-  S.motion=!S.motion; save();
+function syncMotion(){
   $('motionBtn').setAttribute('aria-pressed',S.motion);
   $('motionBtn').textContent='動畫 '+(S.motion?'開':'關');
+  /* 只有「系統擅自關掉、使用者又還沒表態」時才提示 */
+  $('motionHint').hidden = !(REDUCED && !S.motion && !S.motionSet);
+}
+$('motionHint').onclick=()=>{ S.motion=true; S.motionSet=true; save(); syncMotion(); };
+$('motionBtn').onclick=()=>{
+  if(busy())return;
+  S.motion=!S.motion; S.motionSet=true; save(); syncMotion();
 };
 $('mute').onclick=()=>{
   Snd.on=!Snd.on; Snd.init();
@@ -1759,8 +1772,7 @@ $('mute').onclick=()=>{
 
 load();
 if(!S.queue.length && !S.spawners.length) buildQueue();
-$('motionBtn').setAttribute('aria-pressed',S.motion);
-$('motionBtn').textContent='動畫 '+(S.motion?'開':'關');
+syncMotion();
 window.addEventListener('resize',()=>sizeCanvases());
 /* service worker 只在 https / localhost 下註冊；file:// 不支援 */
 if('serviceWorker' in navigator && /^https:$/.test(location.protocol)){
