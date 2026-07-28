@@ -28,7 +28,9 @@
   @media(min-width:378px){:root{--cube:70px}}
   *{box-sizing:border-box;margin:0;padding:0}
   [hidden]{display:none!important}   /* 否則帶 display 的元素會蓋掉 hidden */
-  html,body{background:var(--bg-bot);color:var(--ink)}
+  /* 關掉「連點兩下放大」，但保留雙指縮放（不使用 user-scalable=no，那會連縮放一起封死） */
+  html,body{background:var(--bg-bot);color:var(--ink);touch-action:manipulation;
+    -webkit-text-size-adjust:100%}
   body{font-family:var(--sans);-webkit-font-smoothing:antialiased;
     background-image:linear-gradient(180deg,var(--bg-top) 0%,var(--bg-bot) 62%);
     background-attachment:fixed;min-height:100vh;min-height:100dvh;-webkit-tap-highlight-color:transparent}
