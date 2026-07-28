@@ -24,42 +24,6 @@ Minecraft: Portal Dash 的擲骰輔助工具。行動骰（方塊骰＋怪物骰
 
 ---
 
-## 丟上 GitHub（全程用網頁介面，不需要裝 git）
-
-### 1. 建立 repo
-
-1. 登入 GitHub，右上「+」→ **New repository**
-2. Repository name：`portal-dash`（名字會出現在網址裡，建議短一點、全小寫）
-3. 選 **Public**
-   　→ 免費方案的 GitHub Pages 只支援公開 repo。設 Private 會找不到 Pages 選項。
-4. 其他都不用勾，按 **Create repository**
-
-### 2. 上傳檔案
-
-1. 在剛建好的 repo 頁面，按 **Add file** → **Upload files**
-2. 把這 7 個檔案**全部一起**拖進去
-   　→ **不要放進資料夾**，必須在最上層。放進子資料夾的話所有相對路徑都會錯。
-3. 下方 Commit changes 按下去
-
-### 3. 開啟 Pages
-
-1. repo 上方的 **Settings**（齒輪，不是你帳號的 Settings）
-2. 左側選單往下找 **Pages**
-3. Build and deployment 區塊：
-   - Source：**Deploy from a branch**
-   - Branch：**main**，資料夾選 **/ (root)**
-4. 按 **Save**
-
-等一到兩分鐘（repo 的 Actions 分頁可以看到進度），完成後 Pages 頁面上方會顯示網址：
-
-```
-https://<你的帳號>.github.io/portal-dash/
-```
-
-因為主檔叫 `index.html`，網址結尾不需要再加檔名。
-
----
-
 ## 加到主畫面
 
 **Android（Chrome）**
